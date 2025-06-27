@@ -121,6 +121,22 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true,
 });
 
+// Client-side schema for form validation (unitPrice as string)
+export const insertProductFormSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().optional().nullable(),
+  sku: z.string().min(1, "SKU is required"),
+  barcode: z.string().optional().nullable(),
+  categoryId: z.number().optional().nullable(),
+  unitPrice: z.string().min(1, "Unit price is required"),
+  currentStock: z.number().min(0, "Stock cannot be negative").default(0),
+  minStockLevel: z.number().min(0, "Minimum stock level cannot be negative").default(10),
+  maxStockLevel: z.number().min(1, "Maximum stock level must be at least 1").default(1000),
+  imageUrl: z.string().optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+// Server-side schema for database insertion (unitPrice as number)
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
@@ -142,8 +158,9 @@ export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
-export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InsertProduct = typeof products.$inferInsert;
 export type Product = typeof products.$inferSelect;
+export type InsertProductForm = z.infer<typeof insertProductFormSchema>;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type StockMovement = typeof stockMovements.$inferSelect;
 

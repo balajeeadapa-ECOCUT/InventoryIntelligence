@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
   insertCategorySchema,
-  insertProductSchema,
+  insertProductFormSchema,
   insertStockMovementSchema,
 } from "@shared/schema";
 import { z } from "zod";
@@ -23,6 +23,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Initialize sample data
+  app.post('/api/init-sample-data', isAuthenticated, async (req: any, res) => {
+    try {
+      // Check if categories already exist
+      const existingCategories = await storage.getCategories();
+      if (existingCategories.length > 0) {
+        return res.json({ message: "Sample data already exists" });
+      }
+
+      // Create sample categories
+      const categories = [
+        { name: "Electronics", description: "Electronic devices and components" },
+        { name: "Office Supplies", description: "Office and business supplies" },
+        { name: "Hardware", description: "Tools and hardware items" },
+      ];
+
+      for (const category of categories) {
+        await storage.createCategory(category);
+      }
+
+      res.json({ message: "Sample data initialized successfully" });
+    } catch (error) {
+      console.error("Error initializing sample data:", error);
+      res.status(500).json({ message: "Failed to initialize sample data" });
     }
   });
 
@@ -133,7 +160,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
-      const productData = insertProductSchema.parse(req.body);
+      console.log("Creating product with data:", JSON.stringify(req.body, null, 2));
+      const validatedData = insertProductFormSchema.parse(req.body);
+      
+      // Prepare data for database insertion
+      const productData: any = {
+        name: validatedData.name,
+        description: validatedData.description,
+        sku: validatedData.sku,
+        barcode: validatedData.barcode,
+        categoryId: validatedData.categoryId,
+        unitPrice: validatedData.unitPrice, // Keep as string for Drizzle decimal type
+        currentStock: validatedData.currentStock,
+        minStockLevel: validatedData.minStockLevel,
+        maxStockLevel: validatedData.maxStockLevel,
+        imageUrl: validatedData.imageUrl,
+        isActive: validatedData.isActive,
+      };
+      
       const product = await storage.createProduct(productData);
       
       // Broadcast product creation
@@ -145,6 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid product data", errors: error.errors });
       }
       console.error("Error creating product:", error);
@@ -155,8 +200,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const productData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(id, productData);
+      const validatedData = insertProductFormSchema.partial().parse(req.body);
+      
+      // Prepare data for database update
+      const productData: any = {
+        ...validatedData,
+        ...(validatedData.unitPrice && { unitPrice: validatedData.unitPrice }),
+      };
+      
+      const product = await storage.updateProduct(id, productData as any);
       
       // Broadcast product update
       broadcastToClients({
