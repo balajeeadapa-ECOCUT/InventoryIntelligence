@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, Package, Search, Filter } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import type { ProductWithCategory, Category } from "@shared/schema";
 
 export default function InventoryView() {
@@ -14,6 +15,7 @@ export default function InventoryView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<string>("all");
+  const { user } = useAuth();
 
   const { data: products = { products: [], total: 0 }, isLoading: productsLoading } = useQuery<{
     products: ProductWithCategory[];
@@ -181,21 +183,25 @@ export default function InventoryView() {
                       </div>
                     )}
 
-                    {/* Price */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Unit Price:</span>
-                      <span className="text-sm font-semibold">
-                        {formatCurrency(Number(product.unitPrice))}
-                      </span>
-                    </div>
+                    {/* Price - Hidden for employees */}
+                    {user?.role !== 'employee' && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Unit Price:</span>
+                          <span className="text-sm font-semibold">
+                            {formatCurrency(Number(product.unitPrice))}
+                          </span>
+                        </div>
 
-                    {/* Total Value */}
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <span className="text-sm font-medium">Total Value:</span>
-                      <span className="text-sm font-bold text-green-600">
-                        {formatCurrency(product.currentStock * Number(product.unitPrice))}
-                      </span>
-                    </div>
+                        {/* Total Value */}
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="text-sm font-medium">Total Value:</span>
+                          <span className="text-sm font-bold text-green-600">
+                            {formatCurrency(product.currentStock * Number(product.unitPrice))}
+                          </span>
+                        </div>
+                      </>
+                    )}
 
                     {/* Description */}
                     {product.description && (
