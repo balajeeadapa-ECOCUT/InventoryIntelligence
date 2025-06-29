@@ -11,9 +11,11 @@ import {
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import express from "express";
+import fs from "fs";
 
-// Configure multer for file uploads
-const upload = multer({
+// Configure multer for Excel file uploads
+const uploadExcel = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
@@ -24,6 +26,21 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only Excel files are allowed'));
+    }
+  }
+});
+
+// Configure multer for image uploads
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for images
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
@@ -87,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk upload products from Excel file
-  app.post('/api/products/bulk-upload', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/products/bulk-upload', isAuthenticated, uploadExcel.single('file'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -422,6 +439,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update stock" });
     }
   });
+
+  // Image upload endpoint
+  app.post("/api/upload/image", isAuthenticated, uploadImage.single('image'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExtension = req.file.originalname.split('.').pop();
+      const filename = `product_${timestamp}.${fileExtension}`;
+      
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = './uploads';
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Save file to uploads directory
+      const filepath = `${uploadsDir}/${filename}`;
+      fs.writeFileSync(filepath, req.file.buffer);
+
+      // Return the URL path for the uploaded image
+      const imageUrl = `/uploads/${filename}`;
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ message: "Failed to upload image" });
+    }
+  });
+
+  // Serve uploaded images statically
+  app.use('/uploads', express.static('./uploads'));
 
   // Stock movements routes
   app.get("/api/stock-movements", isAuthenticated, async (req, res) => {

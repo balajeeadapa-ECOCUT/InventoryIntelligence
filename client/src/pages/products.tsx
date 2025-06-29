@@ -273,16 +273,29 @@ export default function Products() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {productsData.products.map((product: ProductWithCategory) => (
+                      {(productsData?.products || []).map((product: any) => (
                         <TableRow key={product.id}>
                           <TableCell>
-                            <div>
-                              <div className="font-medium">{product.name}</div>
-                              {product.barcode && (
-                                <div className="text-sm text-gray-500">
-                                  Barcode: {product.barcode}
+                            <div className="flex items-center space-x-3">
+                              {product.imageUrl ? (
+                                <img
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  className="w-10 h-10 object-cover rounded border"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-gray-100 rounded border flex items-center justify-center">
+                                  <Package className="h-5 w-5 text-gray-400" />
                                 </div>
                               )}
+                              <div>
+                                <div className="font-medium">{product.name}</div>
+                                {product.barcode && (
+                                  <div className="text-sm text-gray-500">
+                                    Barcode: {product.barcode}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-sm">
