@@ -34,6 +34,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("employee"), // admin, manager, employee
+  status: varchar("status").notNull().default("pending"), // pending, approved, rejected
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -151,6 +152,10 @@ export const insertStockMovementSchema = createInsertSchema(stockMovements).omit
 export const upsertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   updatedAt: true,
+});
+
+export const updateUserStatusSchema = z.object({
+  status: z.enum(["pending", "approved", "rejected"]),
 });
 
 // Types

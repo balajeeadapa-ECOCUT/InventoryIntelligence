@@ -23,6 +23,10 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
   
+  // Employee approval operations
+  getPendingEmployees(): Promise<User[]>;
+  updateUserStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<User>;
+  
   // Category operations
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
@@ -66,12 +70,20 @@ export class DatabaseStorage implements IStorage {
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({
+        ...userData,
+        // First-time users start as pending, existing users keep their status
+        status: userData.status || "pending",
+      })
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userData,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
+          // Don't update status on subsequent logins to preserve approval state
         },
       })
       .returning();
@@ -83,6 +95,27 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({
         ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  // Employee approval operations
+  async getPendingEmployees(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.status, "pending"))
+      .orderBy(asc(users.createdAt));
+  }
+
+  async updateUserStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        status,
         updatedAt: new Date(),
       })
       .where(eq(users.id, id))

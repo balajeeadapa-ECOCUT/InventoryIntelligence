@@ -54,10 +54,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      
+      // Check if user is pending approval
+      if (user && user.status === 'pending') {
+        return res.status(403).json({ 
+          message: "Account pending approval", 
+          status: "pending",
+          user: user 
+        });
+      }
+      
+      // Check if user is rejected
+      if (user && user.status === 'rejected') {
+        return res.status(403).json({ 
+          message: "Account access denied", 
+          status: "rejected" 
+        });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Employee approval routes (admin only)
+  app.get('/api/pending-employees', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const pendingEmployees = await storage.getPendingEmployees();
+      res.json(pendingEmployees);
+    } catch (error) {
+      console.error("Error fetching pending employees:", error);
+      res.status(500).json({ message: "Failed to fetch pending employees" });
+    }
+  });
+
+  app.post('/api/approve-employee/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { status } = req.body;
+      if (!["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const updatedUser = await storage.updateUserStatus(req.params.id, status);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating employee status:", error);
+      res.status(500).json({ message: "Failed to update employee status" });
     }
   });
 
