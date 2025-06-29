@@ -10,12 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ProductForm } from "@/components/products/product-form";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
 import { BulkUpload } from "@/components/products/bulk-upload";
+import { StockAdjustment } from "@/components/products/stock-adjustment";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Upload, Search, Filter, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Upload, Search, Filter, Edit, Trash2, Package, TrendingUp, TrendingDown } from "lucide-react";
 import type { ProductWithCategory } from "@shared/schema";
 
 export default function Products() {
@@ -23,6 +24,8 @@ export default function Products() {
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [stockAdjustmentOpen, setStockAdjustmentOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   
@@ -347,6 +350,17 @@ export default function Products() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center gap-2 justify-end">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedProduct(product);
+                                  setStockAdjustmentOpen(true);
+                                }}
+                                title="Stock In/Out"
+                              >
+                                <TrendingUp className="h-4 w-4 text-green-600" />
+                              </Button>
                               <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -386,6 +400,12 @@ export default function Products() {
       <BulkUpload
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
+      />
+
+      <StockAdjustment
+        open={stockAdjustmentOpen}
+        onOpenChange={setStockAdjustmentOpen}
+        product={selectedProduct}
       />
     </div>
   );

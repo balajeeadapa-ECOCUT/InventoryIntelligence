@@ -480,6 +480,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded images statically
   app.use('/uploads', express.static('./uploads'));
 
+  // Stock movement endpoints
+  app.post("/api/stock-movements", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+
+      const { productId, type, quantity, reason, notes } = req.body;
+
+      // Validate input
+      if (!productId || !type || !quantity || !reason) {
+        return res.status(400).json({ 
+          message: "Missing required fields: productId, type, quantity, reason" 
+        });
+      }
+
+      if (!["IN", "OUT", "ADJUSTMENT"].includes(type)) {
+        return res.status(400).json({ 
+          message: "Invalid movement type. Must be IN, OUT, or ADJUSTMENT" 
+        });
+      }
+
+      if (quantity <= 0) {
+        return res.status(400).json({ 
+          message: "Quantity must be positive" 
+        });
+      }
+
+      // Get current product to check stock levels
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Calculate new stock level
+      let newStock = product.currentStock;
+      if (type === "IN") {
+        newStock += quantity;
+      } else if (type === "OUT") {
+        newStock -= quantity;
+        if (newStock < 0) {
+          return res.status(400).json({ 
+            message: `Insufficient stock. Current: ${product.currentStock}, Requested: ${quantity}` 
+          });
+        }
+      } else if (type === "ADJUSTMENT") {
+        // For adjustments, the quantity represents the new total stock level
+        newStock = quantity;
+      }
+
+      // Create stock movement record
+      const movementData = {
+        productId,
+        userId,
+        type,
+        quantity,
+        previousStock: product.currentStock,
+        newStock,
+        reason,
+        notes: notes || null,
+      };
+
+      const movement = await storage.createStockMovement(movementData);
+
+      // Update product stock level
+      await storage.updateProductStock(productId, newStock, userId, reason);
+
+      // Broadcast stock update
+      broadcastToClients({
+        type: "STOCK_UPDATED",
+        data: { productId, newStock, movement },
+      });
+
+      res.status(201).json(movement);
+    } catch (error) {
+      console.error("Error creating stock movement:", error);
+      res.status(500).json({ message: "Failed to create stock movement" });
+    }
+  });
+
   // Stock movements routes
   app.get("/api/stock-movements", isAuthenticated, async (req, res) => {
     try {
