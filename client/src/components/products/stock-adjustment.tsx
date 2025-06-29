@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,7 +19,7 @@ const stockAdjustmentSchema = z.object({
   productId: z.number(),
   type: z.enum(["IN", "OUT", "ADJUSTMENT"]),
   quantity: z.number().min(1, "Quantity must be at least 1"),
-  reason: z.string().min(1, "Reason is required"),
+  reason: z.string().min(1, "Reason is required").max(100, "Reason must be less than 100 characters"),
   notes: z.string().optional(),
 });
 
@@ -34,6 +34,16 @@ interface StockAdjustmentProps {
 export function StockAdjustment({ open, onOpenChange, product }: StockAdjustmentProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showCustomReason, setShowCustomReason] = useState(false);
+  const [customReasons, setCustomReasons] = useState<string[]>([]);
+
+  // Load custom reasons from localStorage on component mount
+  useEffect(() => {
+    const savedReasons = localStorage.getItem('customStockReasons');
+    if (savedReasons) {
+      setCustomReasons(JSON.parse(savedReasons));
+    }
+  }, []);
 
   const form = useForm<StockAdjustmentData>({
     resolver: zodResolver(stockAdjustmentSchema),
@@ -60,6 +70,7 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       onOpenChange(false);
       form.reset();
+      setShowCustomReason(false);
     },
     onError: (error) => {
       toast({ 
@@ -70,7 +81,20 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
     },
   });
 
+  const saveCustomReason = (reason: string) => {
+    if (reason && !customReasons.includes(reason)) {
+      const updatedReasons = [...customReasons, reason].slice(-10); // Keep last 10 custom reasons
+      setCustomReasons(updatedReasons);
+      localStorage.setItem('customStockReasons', JSON.stringify(updatedReasons));
+    }
+  };
+
   const onSubmit = (data: StockAdjustmentData) => {
+    // Save custom reason if it's a new one
+    if (showCustomReason && data.reason) {
+      saveCustomReason(data.reason);
+    }
+    
     stockAdjustmentMutation.mutate({
       ...data,
       productId: product.id,
@@ -190,24 +214,58 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Reason</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select reason" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Purchase">New Purchase</SelectItem>
-                      <SelectItem value="Sale">Sale/Sold</SelectItem>
-                      <SelectItem value="Return">Customer Return</SelectItem>
-                      <SelectItem value="Damage">Damaged/Broken</SelectItem>
-                      <SelectItem value="Lost">Lost/Missing</SelectItem>
-                      <SelectItem value="Transfer">Transfer</SelectItem>
-                      <SelectItem value="Audit">Stock Audit</SelectItem>
-                      <SelectItem value="Correction">Data Correction</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Select onValueChange={(value) => {
+                      if (value === "custom") {
+                        setShowCustomReason(true);
+                        field.onChange("");
+                      } else {
+                        setShowCustomReason(false);
+                        field.onChange(value);
+                      }
+                    }} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select reason" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Purchase">New Purchase</SelectItem>
+                        <SelectItem value="Sale">Sale/Sold</SelectItem>
+                        <SelectItem value="Return">Customer Return</SelectItem>
+                        <SelectItem value="Damage">Damaged/Broken</SelectItem>
+                        <SelectItem value="Lost">Lost/Missing</SelectItem>
+                        <SelectItem value="Transfer">Transfer</SelectItem>
+                        <SelectItem value="Audit">Stock Audit</SelectItem>
+                        <SelectItem value="Correction">Data Correction</SelectItem>
+                        
+                        {customReasons.length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-xs font-medium text-gray-500 border-t">
+                              Recent Custom Reasons
+                            </div>
+                            {customReasons.map((reason, index) => (
+                              <SelectItem key={`custom-${index}`} value={reason}>
+                                {reason}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        
+                        <SelectItem value="custom">+ Add New Custom Reason</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {showCustomReason && (
+                      <Input
+                        placeholder="Enter custom reason (max 100 characters)..."
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="mt-2"
+                        maxLength={100}
+                      />
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
