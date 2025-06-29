@@ -121,14 +121,14 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true,
 });
 
-// Client-side schema for form validation (unitPrice as string)
+// Client-side schema for form validation (unitPrice as number for API)
 export const insertProductFormSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional().nullable(),
   sku: z.string().min(1, "SKU is required"),
   barcode: z.string().optional().nullable(),
   categoryId: z.number().optional().nullable(),
-  unitPrice: z.string().min(1, "Unit price is required"),
+  unitPrice: z.number().min(0, "Unit price must be non-negative"),
   currentStock: z.number().min(0, "Stock cannot be negative").default(0),
   minStockLevel: z.number().min(0, "Minimum stock level cannot be negative").default(10),
   maxStockLevel: z.number().min(1, "Maximum stock level must be at least 1").default(1000),

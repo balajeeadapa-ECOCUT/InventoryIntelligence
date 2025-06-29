@@ -142,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sku: row["SKU"] || row["sku"],
             barcode: row["Barcode"] || row["barcode"] || "",
             categoryId: null as number | null,
-            unitPrice: String(row["Unit Price"] || row["unitPrice"] || "0"),
+            unitPrice: Number(row["Unit Price"] || row["unitPrice"] || 0),
             currentStock: Number(row["Current Stock"] || row["currentStock"] || 0),
             minStockLevel: Number(row["Min Stock Level"] || row["minStockLevel"] || 10),
             maxStockLevel: Number(row["Max Stock Level"] || row["maxStockLevel"] || 1000),
@@ -162,8 +162,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Validate the product data
           const validatedData = insertProductFormSchema.parse(productData);
 
+          // Convert unitPrice to string for database storage
+          const dbProductData = {
+            ...validatedData,
+            unitPrice: validatedData.unitPrice.toString()
+          };
+
           // Create product
-          await storage.createProduct(validatedData as any);
+          await storage.createProduct(dbProductData as any);
           results.successful++;
 
         } catch (error) {
@@ -337,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sku: validatedData.sku,
         barcode: validatedData.barcode,
         categoryId: validatedData.categoryId,
-        unitPrice: validatedData.unitPrice, // Keep as string for Drizzle decimal type
+        unitPrice: validatedData.unitPrice.toString(), // Convert number to string for Drizzle decimal type
         currentStock: validatedData.currentStock,
         minStockLevel: validatedData.minStockLevel,
         maxStockLevel: validatedData.maxStockLevel,
@@ -372,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare data for database update
       const productData: any = {
         ...validatedData,
-        ...(validatedData.unitPrice && { unitPrice: validatedData.unitPrice }),
+        ...(validatedData.unitPrice !== undefined && { unitPrice: validatedData.unitPrice.toString() }),
       };
       
       const product = await storage.updateProduct(id, productData as any);
