@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ProductForm } from "@/components/products/product-form";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
 import { BulkUpload } from "@/components/products/bulk-upload";
+import { BulkStockUpload } from "@/components/products/bulk-stock-upload";
 import { StockAdjustment } from "@/components/products/stock-adjustment";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ export default function Products() {
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [bulkStockUploadOpen, setBulkStockUploadOpen] = useState(false);
   const [stockAdjustmentOpen, setStockAdjustmentOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -159,7 +161,11 @@ export default function Products() {
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload
+                Bulk Upload Products
+              </Button>
+              <Button variant="outline" onClick={() => setBulkStockUploadOpen(true)}>
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Bulk Stock Movements
               </Button>
               <Button onClick={() => setProductFormOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -400,6 +406,11 @@ export default function Products() {
       <BulkUpload
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
+      />
+
+      <BulkStockUpload
+        open={bulkStockUploadOpen}
+        onOpenChange={setBulkStockUploadOpen}
       />
 
       <StockAdjustment

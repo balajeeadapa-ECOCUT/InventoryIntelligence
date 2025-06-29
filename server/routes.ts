@@ -561,6 +561,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock movement template download
+  app.get('/api/stock-movements/template', (req, res) => {
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Sample data for stock movements template
+      const templateData = [
+        {
+          "Product SKU": "REF-1443-010",
+          "Movement Type": "IN",
+          "Quantity": "50",
+          "Reason": "Purchase",
+          "Notes": "New stock received from supplier"
+        },
+        {
+          "Product SKU": "REF-1443-010", 
+          "Movement Type": "OUT",
+          "Quantity": "10",
+          "Reason": "Sale",
+          "Notes": "Sold to customer ABC Ltd"
+        },
+        {
+          "Product SKU": "REF-1443-010",
+          "Movement Type": "ADJUSTMENT",
+          "Quantity": "45",
+          "Reason": "Audit",
+          "Notes": "Physical count correction"
+        }
+      ];
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Movements");
+      
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', 'attachment; filename="stock_movements_template.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating stock movements template:", error);
+      res.status(500).json({ message: "Failed to generate template" });
+    }
+  });
+
+  // Bulk upload stock movements from Excel file
+  app.post('/api/stock-movements/bulk-upload', isAuthenticated, uploadExcel.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!data.length) {
+        return res.status(400).json({ message: "Excel file is empty" });
+      }
+
+      const results = {
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      // Get all products for SKU lookup
+      const products = await storage.getProducts({});
+      const productMap = new Map(products.products.map(product => [product.sku.toLowerCase(), product]));
+
+      // Process each row
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i] as any;
+        
+        try {
+          // Map Excel columns to our schema
+          const productSku = row["Product SKU"] || row["productSku"] || row["sku"];
+          const type = row["Movement Type"] || row["type"];
+          const quantity = Number(row["Quantity"] || row["quantity"] || 0);
+          const reason = row["Reason"] || row["reason"] || "";
+          const notes = row["Notes"] || row["notes"] || "";
+
+          // Validate required fields
+          if (!productSku || !type || !quantity || !reason) {
+            throw new Error("Missing required fields: Product SKU, Movement Type, Quantity, Reason");
+          }
+
+          // Validate movement type
+          if (!["IN", "OUT", "ADJUSTMENT"].includes(type.toUpperCase())) {
+            throw new Error("Invalid movement type. Must be IN, OUT, or ADJUSTMENT");
+          }
+
+          // Find product by SKU
+          const product = productMap.get(productSku.toLowerCase());
+          if (!product) {
+            throw new Error(`Product with SKU '${productSku}' not found`);
+          }
+
+          // Calculate new stock level
+          let newStock = product.currentStock;
+          const normalizedType = type.toUpperCase();
+          
+          if (normalizedType === "IN") {
+            newStock += quantity;
+          } else if (normalizedType === "OUT") {
+            newStock -= quantity;
+            if (newStock < 0) {
+              throw new Error(`Insufficient stock. Current: ${product.currentStock}, Requested: ${quantity}`);
+            }
+          } else if (normalizedType === "ADJUSTMENT") {
+            newStock = quantity;
+          }
+
+          // Create stock movement record
+          const movementData = {
+            productId: product.id,
+            userId,
+            type: normalizedType as "IN" | "OUT" | "ADJUSTMENT",
+            quantity,
+            previousStock: product.currentStock,
+            newStock,
+            reason,
+            notes: notes || null,
+          };
+
+          await storage.createStockMovement(movementData);
+          await storage.updateProductStock(product.id, newStock, userId, reason);
+
+          results.successful++;
+
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            row: i + 2, // Excel row number (accounting for header)
+            data: { productSku: row["Product SKU"], type: row["Movement Type"], quantity: row["Quantity"] },
+            error: error instanceof Error ? error.message : "Unknown error"
+          });
+        }
+      }
+
+      // Broadcast bulk stock update
+      broadcastToClients({
+        type: "BULK_STOCK_UPDATED",
+        data: { successful: results.successful, failed: results.failed },
+      });
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error processing bulk stock movements:", error);
+      res.status(500).json({ message: "Failed to process bulk stock movements" });
+    }
+  });
+
   // Stock movements routes
   app.get("/api/stock-movements", isAuthenticated, async (req, res) => {
     try {
