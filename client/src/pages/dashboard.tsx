@@ -7,6 +7,7 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { InventoryTable } from "@/components/dashboard/inventory-table";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
 import { ProductForm } from "@/components/products/product-form";
+import { BulkUpload } from "@/components/products/bulk-upload";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [productFormOpen, setProductFormOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
@@ -109,6 +111,7 @@ export default function Dashboard() {
             <QuickActions 
               onAddProduct={() => setProductFormOpen(true)}
               onScanItem={() => setScannerOpen(true)}
+              onBulkUpload={() => setBulkUploadOpen(true)}
             />
           </div>
           
@@ -126,6 +129,11 @@ export default function Dashboard() {
       <ProductForm
         open={productFormOpen}
         onOpenChange={setProductFormOpen}
+      />
+
+      <BulkUpload
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
       />
     </div>
   );

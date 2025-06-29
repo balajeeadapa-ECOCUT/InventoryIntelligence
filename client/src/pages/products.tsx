@@ -4,14 +4,16 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { ProductForm } from "@/components/products/product-form";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
+import { BulkUpload } from "@/components/products/bulk-upload";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 
 export default function Products() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
@@ -75,10 +77,16 @@ export default function Products() {
               <h3 className="text-lg font-semibold text-gray-900">All Products</h3>
               <p className="text-gray-600">Manage your product catalog</p>
             </div>
-            <Button onClick={() => setProductFormOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Bulk Upload
+              </Button>
+              <Button onClick={() => setProductFormOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           </div>
 
           {/* Product list would go here */}
@@ -106,6 +114,11 @@ export default function Products() {
             description: `Barcode: ${barcode}`,
           });
         }}
+      />
+
+      <BulkUpload
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
       />
     </div>
   );

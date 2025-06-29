@@ -6,9 +6,10 @@ import { useLocation } from "wouter";
 interface QuickActionsProps {
   onAddProduct?: () => void;
   onScanItem?: () => void;
+  onBulkUpload?: () => void;
 }
 
-export function QuickActions({ onAddProduct, onScanItem }: QuickActionsProps) {
+export function QuickActions({ onAddProduct, onScanItem, onBulkUpload }: QuickActionsProps) {
   const [, setLocation] = useLocation();
 
   const actions = [
@@ -19,13 +20,10 @@ export function QuickActions({ onAddProduct, onScanItem }: QuickActionsProps) {
       onClick: onAddProduct || (() => setLocation("/products?action=add")),
     },
     {
-      title: "Bulk Import",
-      description: "Import from CSV",
+      title: "Bulk Upload",
+      description: "Import from Excel",
       icon: Upload,
-      onClick: () => {
-        // TODO: Implement bulk import
-        console.log("Bulk import");
-      },
+      onClick: onBulkUpload || (() => setLocation("/products?action=bulk")),
     },
     {
       title: "Generate Report",
