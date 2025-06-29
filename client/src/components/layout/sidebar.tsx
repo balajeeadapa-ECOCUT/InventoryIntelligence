@@ -1,17 +1,31 @@
 import { Link, useLocation } from "wouter";
-import { Package, LayoutDashboard, Package2, Users, FileText, Settings, LogOut, FolderOpen } from "lucide-react";
+import { Package, LayoutDashboard, Package2, Users, FileText, Settings, LogOut, FolderOpen, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Products", href: "/products", icon: Package2 },
-  { name: "Categories", href: "/categories", icon: FolderOpen },
-  { name: "Employees", href: "/employees", icon: Users },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
+const getNavigation = (userRole: string) => {
+  const baseNavigation = [
+    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  ];
+
+  if (userRole === "employee") {
+    return [
+      ...baseNavigation,
+      { name: "Inventory View", href: "/inventory-view", icon: Eye },
+    ];
+  }
+
+  // Admin and Manager get full access
+  return [
+    ...baseNavigation,
+    { name: "Products", href: "/products", icon: Package2 },
+    { name: "Categories", href: "/categories", icon: FolderOpen },
+    { name: "Employees", href: "/employees", icon: Users },
+    { name: "Reports", href: "/reports", icon: FileText },
+    { name: "Settings", href: "/settings", icon: Settings },
+  ];
+};
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -21,6 +35,8 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
+  
+  const navigation = getNavigation(user?.role || "employee");
 
   return (
     <div className={`w-64 bg-white shadow-lg flex-shrink-0 ${isOpen ? "block" : "hidden"} lg:block`}>

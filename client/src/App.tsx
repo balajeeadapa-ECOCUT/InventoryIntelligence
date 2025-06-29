@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Products from "@/pages/products";
+import InventoryView from "@/pages/inventory-view";
 import Categories from "@/pages/categories";
 import Employees from "@/pages/employees";
 import Reports from "@/pages/reports";
@@ -24,6 +25,7 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/products" component={Products} />
+          <Route path="/inventory-view" component={InventoryView} />
           <Route path="/categories" component={Categories} />
           <Route path="/employees" component={Employees} />
           <Route path="/reports" component={Reports} />
