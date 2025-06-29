@@ -42,6 +42,14 @@ StockFlow is a full-stack inventory management system built with React, Express.
 - **Stock Movements**: Detailed audit trail of all inventory changes
 - **Barcode Support**: Scanner integration for quick product lookup
 - **Low Stock Alerts**: Automated notifications for inventory thresholds
+- **AI-Powered Analytics**: Intelligent demand forecasting and stock optimization
+
+### AI Inventory Capabilities
+- **Demand Forecasting**: Predicts future product demand using historical data
+- **Smart Insights**: Automated analysis of inventory patterns and trends
+- **Reorder Recommendations**: AI-generated alerts for optimal restocking
+- **Stock Optimization**: Intelligent suggestions for optimal inventory levels
+- **Cost Impact Analysis**: Evaluates financial impact of inventory decisions
 
 ### User Interface
 - **Responsive Design**: Mobile-first approach with adaptive layouts

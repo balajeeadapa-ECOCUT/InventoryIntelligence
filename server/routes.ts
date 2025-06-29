@@ -13,6 +13,7 @@ import * as XLSX from "xlsx";
 import { z } from "zod";
 import express from "express";
 import fs from "fs";
+import { aiInventoryService } from "./ai-inventory";
 
 // Configure multer for Excel file uploads
 const uploadExcel = multer({
@@ -821,6 +822,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching stock movements:", error);
       res.status(500).json({ message: "Failed to fetch stock movements" });
+    }
+  });
+
+  // AI-powered inventory routes
+  app.get("/api/ai/demand-forecast", isAuthenticated, async (req, res) => {
+    try {
+      const { productId } = req.query;
+      const forecast = await aiInventoryService.generateDemandForecast(
+        productId ? parseInt(productId as string) : undefined
+      );
+      res.json(forecast);
+    } catch (error) {
+      console.error("Error generating demand forecast:", error);
+      res.status(500).json({ message: "Failed to generate demand forecast" });
+    }
+  });
+
+  app.get("/api/ai/inventory-insights", isAuthenticated, async (req, res) => {
+    try {
+      const insights = await aiInventoryService.generateInventoryInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating inventory insights:", error);
+      res.status(500).json({ message: "Failed to generate inventory insights" });
+    }
+  });
+
+  app.get("/api/ai/stock-optimization", isAuthenticated, async (req, res) => {
+    try {
+      const optimizations = await aiInventoryService.optimizeStockLevels();
+      res.json(optimizations);
+    } catch (error) {
+      console.error("Error optimizing stock levels:", error);
+      res.status(500).json({ message: "Failed to optimize stock levels" });
+    }
+  });
+
+  app.get("/api/ai/reorder-recommendations", isAuthenticated, async (req, res) => {
+    try {
+      const recommendations = await aiInventoryService.generateReorderRecommendations();
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error generating reorder recommendations:", error);
+      res.status(500).json({ message: "Failed to generate reorder recommendations" });
     }
   });
 

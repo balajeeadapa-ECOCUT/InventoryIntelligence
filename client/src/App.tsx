@@ -14,6 +14,7 @@ import Employees from "@/pages/employees";
 import Reports from "@/pages/reports";
 import PendingApproval from "@/pages/pending-approval";
 import NotFound from "@/pages/not-found";
+import AIInsights from "@/pages/ai-insights";
 
 function Router() {
   const { isAuthenticated, isLoading, isPendingApproval, isRejected, approvalData } = useAuth();
@@ -51,6 +52,7 @@ function Router() {
           <Route path="/products" component={Products} />
           <Route path="/inventory-view" component={InventoryView} />
           <Route path="/categories" component={Categories} />
+          <Route path="/ai-insights" component={AIInsights} />
           <Route path="/employees" component={Employees} />
           <Route path="/reports" component={Reports} />
         </>

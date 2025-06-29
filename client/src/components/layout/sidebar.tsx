@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Package, LayoutDashboard, Package2, Users, FileText, Settings, LogOut, FolderOpen, Eye } from "lucide-react";
+import { Package, LayoutDashboard, Package2, Users, FileText, Settings, LogOut, FolderOpen, Eye, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +21,7 @@ const getNavigation = (userRole: string) => {
     ...baseNavigation,
     { name: "Products", href: "/products", icon: Package2 },
     { name: "Categories", href: "/categories", icon: FolderOpen },
+    { name: "AI Insights", href: "/ai-insights", icon: Brain },
     { name: "Employees", href: "/employees", icon: Users },
     { name: "Reports", href: "/reports", icon: FileText },
     { name: "Settings", href: "/settings", icon: Settings },
