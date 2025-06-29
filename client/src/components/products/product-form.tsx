@@ -216,7 +216,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 name="unitPrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Unit Price ($)</FormLabel>
+                    <FormLabel>Unit Price (₹)</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 

@@ -150,7 +150,7 @@ export function InventoryTable() {
                       <span className="text-sm text-gray-600">{product.currentStock} units</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium">${parseFloat(product.unitPrice).toFixed(2)}</TableCell>
+                  <TableCell className="font-medium">₹{parseFloat(product.unitPrice).toFixed(2)}</TableCell>
                   <TableCell className="text-sm text-gray-600">
                     {formatDistanceToNow(new Date(product.updatedAt), { addSuffix: true })}
                   </TableCell>

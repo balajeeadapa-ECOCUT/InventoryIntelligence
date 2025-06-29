@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Package, AlertTriangle, XCircle, DollarSign } from "lucide-react";
+import { Package, AlertTriangle, XCircle, IndianRupee } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export function StockStatusCards() {
@@ -37,10 +37,10 @@ export function StockStatusCards() {
     },
     {
       title: "Total Value",
-      value: `$${((stats?.totalValue || 0) / 1000).toFixed(0)}K`,
+      value: `₹${((stats?.totalValue || 0) / 1000).toFixed(0)}K`,
       change: "+8.2%",
       changeType: "positive",
-      icon: DollarSign,
+      icon: IndianRupee,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
     },

@@ -27,7 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Initialize sample data
-  app.post('/api/init-sample-data', isAuthenticated, async (req: any, res) => {
+  app.get('/api/init-sample-data', async (req: any, res) => {
     try {
       // Check if categories already exist
       const existingCategories = await storage.getCategories();
