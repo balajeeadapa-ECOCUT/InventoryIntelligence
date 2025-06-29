@@ -197,7 +197,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories?.map((category: any) => (
+                        {(categories || []).map((category: any) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
                           </SelectItem>
