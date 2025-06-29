@@ -131,12 +131,12 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] max-w-md max-h-[95vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Adjust Stock - {product.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+        <div className="flex-shrink-0 mb-4 p-3 bg-gray-50 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Current Stock:</span>
             <Badge variant="outline" className="font-mono">
@@ -149,9 +149,10 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
           </div>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <Form {...form}>
+            <div className="space-y-4 pb-4">
+              <FormField
               control={form.control}
               name="type"
               render={({ field }) => (
@@ -288,24 +289,25 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
                 </FormItem>
               )}
             />
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={stockAdjustmentMutation.isPending}
-              >
-                {stockAdjustmentMutation.isPending ? "Recording..." : "Record Movement"}
-              </Button>
             </div>
-          </form>
-        </Form>
+          </Form>
+        </div>
+
+        <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 border-t bg-white">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            disabled={stockAdjustmentMutation.isPending}
+            onClick={form.handleSubmit(onSubmit)}
+          >
+            {stockAdjustmentMutation.isPending ? "Recording..." : "Record Movement"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
