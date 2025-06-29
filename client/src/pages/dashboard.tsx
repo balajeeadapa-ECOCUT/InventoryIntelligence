@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -56,12 +58,19 @@ export default function Dashboard() {
     }
   });
 
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setLocation(`/products?search=${encodeURIComponent(query.trim())}`);
+    }
+  };
+
   const handleScan = (barcode: string) => {
     toast({
       title: "Barcode Scanned",
-      description: `Barcode: ${barcode}`,
+      description: `Searching for product with barcode: ${barcode}`,
     });
-    // TODO: Look up product by barcode and show stock adjustment dialog
+    setLocation(`/products?search=${encodeURIComponent(barcode)}`);
+    setScannerOpen(false);
   };
 
   if (isLoading) {
@@ -101,6 +110,7 @@ export default function Dashboard() {
           subtitle="Real-time stock monitoring"
           onMenuClick={() => setSidebarOpen(true)}
           onScanClick={() => setScannerOpen(true)}
+          onSearch={handleSearch}
         />
         
         <main className="flex-1 overflow-auto p-4 lg:p-6">
