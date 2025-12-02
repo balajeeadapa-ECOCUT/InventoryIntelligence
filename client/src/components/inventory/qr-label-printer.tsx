@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import QRCode from "react-qr-code";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -37,14 +37,29 @@ interface QRLabelPrinterProps {
   open: boolean;
   onClose: () => void;
   singleProduct?: Product | null;
+  initialSelectedIds?: number[];
 }
 
-export function QRLabelPrinter({ products, open, onClose, singleProduct }: QRLabelPrinterProps) {
-  const [selectedProducts, setSelectedProducts] = useState<number[]>(
-    singleProduct ? [singleProduct.id] : []
-  );
+export function QRLabelPrinter({ products, open, onClose, singleProduct, initialSelectedIds }: QRLabelPrinterProps) {
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [isPrinting, setIsPrinting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const prevOpen = useRef(false);
+  
+  // Initialize selected products when dialog opens
+  useEffect(() => {
+    if (open && !prevOpen.current) {
+      if (singleProduct) {
+        // Single product mode - always select that product
+        setSelectedProducts([singleProduct.id]);
+      } else if (initialSelectedIds !== undefined) {
+        // Batch mode - use the provided selection (even if empty)
+        setSelectedProducts([...initialSelectedIds]);
+      }
+      // If no initialSelectedIds provided and not single product, keep current selection
+    }
+    prevOpen.current = open;
+  }, [open, singleProduct, initialSelectedIds]);
 
   const toggleProduct = (productId: number) => {
     setSelectedProducts(prev =>
@@ -445,11 +460,15 @@ export function PrintQRButton({ product, variant = "outline", size = "sm" }: Pri
       <Button
         variant={variant}
         size={size}
-        onClick={() => setIsOpen(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
+        title="Print QR Label"
         data-testid={`print-qr-btn-${product.id}`}
       >
-        <QrCode className="w-4 h-4 mr-1" />
-        QR Label
+        <QrCode className={size === "icon" ? "w-4 h-4" : "w-4 h-4 mr-1"} />
+        {size !== "icon" && "QR Label"}
       </Button>
       <QRLabelPrinter
         products={[product]}

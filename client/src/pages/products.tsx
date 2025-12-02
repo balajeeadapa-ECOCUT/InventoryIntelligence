@@ -7,17 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProductForm } from "@/components/products/product-form";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
 import { BulkUpload } from "@/components/products/bulk-upload";
 import { BulkStockUpload } from "@/components/products/bulk-stock-upload";
 import { StockAdjustment } from "@/components/products/stock-adjustment";
+import { QRLabelPrinter, PrintQRButton } from "@/components/inventory/qr-label-printer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Upload, Search, Filter, Edit, Trash2, Package, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Upload, Search, Filter, Edit, Trash2, Package, TrendingUp, TrendingDown, QrCode, Printer } from "lucide-react";
 import type { ProductWithCategory } from "@shared/schema";
 
 export default function Products() {
@@ -27,6 +29,8 @@ export default function Products() {
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [bulkStockUploadOpen, setBulkStockUploadOpen] = useState(false);
   const [stockAdjustmentOpen, setStockAdjustmentOpen] = useState(false);
+  const [qrLabelPrinterOpen, setQrLabelPrinterOpen] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
@@ -158,14 +162,25 @@ export default function Products() {
               <h3 className="text-lg font-semibold text-gray-900">All Products</h3>
               <p className="text-gray-600">Manage your product catalog</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {selectedProducts.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setQrLabelPrinterOpen(true)}
+                  className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+                  data-testid="batch-print-qr-btn"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print {selectedProducts.length} QR Labels
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload Products
+                Bulk Upload
               </Button>
               <Button variant="outline" onClick={() => setBulkStockUploadOpen(true)}>
                 <TrendingUp className="h-4 w-4 mr-2" />
-                Bulk Stock Movements
+                Stock Movements
               </Button>
               <Button onClick={() => setProductFormOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -205,7 +220,7 @@ export default function Products() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
-                      {(categories || []).map((category: any) => (
+                      {(Array.isArray(categories) ? categories : []).map((category: any) => (
                         <SelectItem key={category.id} value={category.id.toString()}>
                           {category.name}
                         </SelectItem>
@@ -272,6 +287,19 @@ export default function Products() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedProducts.length === productsData?.products?.length && productsData?.products?.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedProducts(productsData?.products?.map((p: any) => p.id) || []);
+                              } else {
+                                setSelectedProducts([]);
+                              }
+                            }}
+                            data-testid="select-all-products"
+                          />
+                        </TableHead>
                         <TableHead>Product</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead>Category</TableHead>
@@ -283,7 +311,24 @@ export default function Products() {
                     </TableHeader>
                     <TableBody>
                       {(productsData?.products || []).map((product: any) => (
-                        <TableRow key={product.id}>
+                        <TableRow 
+                          key={product.id}
+                          className={selectedProducts.includes(product.id) ? "bg-purple-50" : ""}
+                          data-testid={`product-row-${product.id}`}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedProducts.includes(product.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedProducts([...selectedProducts, product.id]);
+                                } else {
+                                  setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                                }
+                              }}
+                              data-testid={`select-product-${product.id}`}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-3">
                               {product.imageUrl ? (
@@ -355,10 +400,11 @@ export default function Products() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center gap-2 justify-end">
+                            <div className="flex items-center gap-1 justify-end">
+                              <PrintQRButton product={product} size="icon" variant="ghost" />
                               <Button 
                                 variant="ghost" 
-                                size="sm"
+                                size="icon"
                                 onClick={() => {
                                   setSelectedProduct(product);
                                   setStockAdjustmentOpen(true);
@@ -367,10 +413,10 @@ export default function Products() {
                               >
                                 <TrendingUp className="h-4 w-4 text-green-600" />
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="icon">
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="icon">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -417,6 +463,16 @@ export default function Products() {
         open={stockAdjustmentOpen}
         onOpenChange={setStockAdjustmentOpen}
         product={selectedProduct}
+      />
+
+      <QRLabelPrinter
+        products={productsData?.products || []}
+        open={qrLabelPrinterOpen}
+        onClose={() => {
+          setQrLabelPrinterOpen(false);
+          setSelectedProducts([]);
+        }}
+        initialSelectedIds={selectedProducts}
       />
     </div>
   );

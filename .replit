@@ -34,3 +34,10 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 42817
+externalPort = 3001
+
+[agent]
+integrations = ["javascript_log_in_with_replit:1.0.0"]
