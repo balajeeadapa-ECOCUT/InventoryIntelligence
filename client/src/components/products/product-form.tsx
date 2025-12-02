@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,18 +46,49 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: product?.name || "",
-      description: product?.description || "",
-      sku: product?.sku || "",
-      barcode: product?.barcode || "",
-      categoryId: product?.categoryId || undefined,
-      unitPrice: product?.unitPrice || "",
-      currentStock: product?.currentStock || 0,
-      minStockLevel: product?.minStockLevel || 10,
-      maxStockLevel: product?.maxStockLevel || 1000,
-      imageUrl: product?.imageUrl || "",
+      name: "",
+      description: "",
+      sku: "",
+      barcode: "",
+      categoryId: undefined,
+      unitPrice: "",
+      currentStock: 0,
+      minStockLevel: 10,
+      maxStockLevel: 1000,
+      imageUrl: "",
     },
   });
+
+  // Reset form when product changes (for edit mode)
+  useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name || "",
+        description: product.description || "",
+        sku: product.sku || "",
+        barcode: product.barcode || "",
+        categoryId: product.categoryId || undefined,
+        unitPrice: product.unitPrice?.toString() || "",
+        currentStock: product.currentStock || 0,
+        minStockLevel: product.minStockLevel || 10,
+        maxStockLevel: product.maxStockLevel || 1000,
+        imageUrl: product.imageUrl || "",
+      });
+    } else {
+      form.reset({
+        name: "",
+        description: "",
+        sku: "",
+        barcode: "",
+        categoryId: undefined,
+        unitPrice: "",
+        currentStock: 0,
+        minStockLevel: 10,
+        maxStockLevel: 1000,
+        imageUrl: "",
+      });
+    }
+  }, [product, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {

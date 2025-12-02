@@ -25,6 +25,7 @@ import type { ProductWithCategory } from "@shared/schema";
 export default function Products() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [productFormOpen, setProductFormOpen] = useState(false);
+  const [editProductFormOpen, setEditProductFormOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [bulkStockUploadOpen, setBulkStockUploadOpen] = useState(false);
@@ -413,7 +414,16 @@ export default function Products() {
                               >
                                 <TrendingUp className="h-4 w-4 text-green-600" />
                               </Button>
-                              <Button variant="ghost" size="icon">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedProduct(product);
+                                  setEditProductFormOpen(true);
+                                }}
+                                title="Edit Product"
+                                data-testid={`button-edit-product-${product.id}`}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon">
@@ -436,6 +446,15 @@ export default function Products() {
       <ProductForm
         open={productFormOpen}
         onOpenChange={setProductFormOpen}
+      />
+      
+      <ProductForm
+        open={editProductFormOpen}
+        onOpenChange={(open) => {
+          setEditProductFormOpen(open);
+          if (!open) setSelectedProduct(null);
+        }}
+        product={selectedProduct}
       />
       
       <BarcodeScanner
