@@ -45,11 +45,18 @@ StockFlow is a full-stack inventory management system built with React, Express.
 - **AI-Powered Analytics**: Intelligent demand forecasting and stock optimization
 
 ### AI Inventory Capabilities
-- **Demand Forecasting**: Predicts future product demand using historical data
+- **Multi-Model AI System**: Dual AI support with OpenAI GPT and Google Gemini Pro for enhanced analysis
+- **Natural Language Queries**: Conversational inventory searches like "Show me low stock items under ₹1000"
+- **AI Chat Assistant**: Floating widget available on all pages for real-time help and queries
+- **Demand Forecasting**: Predicts future product demand using historical data with visual charts
 - **Smart Insights**: Automated analysis of inventory patterns and trends
 - **Reorder Recommendations**: AI-generated alerts for optimal restocking
 - **Stock Optimization**: Intelligent suggestions for optimal inventory levels
 - **Cost Impact Analysis**: Evaluates financial impact of inventory decisions
+- **Vendor Recommendations**: AI-powered supplier suggestions with scoring and ranking
+- **Document Processing**: PDF invoice/purchase order extraction using AI
+- **Email Alert System**: Automated notifications with AI-generated insights for critical stock levels
+- **Voice Command Support**: Hands-free inventory queries using Web Speech API
 
 ### User Interface
 - **Responsive Design**: Mobile-first approach with adaptive layouts
@@ -129,6 +136,16 @@ StockFlow is a full-stack inventory management system built with React, Express.
 - **Banner**: Development environment identification
 
 ## Changelog
+- December 2, 2025. Added advanced AI capabilities:
+  - Multi-model AI orchestrator (OpenAI + Gemini Pro)
+  - Natural language query interface
+  - AI Chat Assistant widget
+  - Predictive visual analytics with charts
+  - Smart vendor recommendations
+  - AI document processing for PDFs
+  - Email alerts system with AI insights
+  - Voice command support
+  - Enhanced futuristic UI with animations
 - June 27, 2025. Initial setup
 
 ## User Preferences

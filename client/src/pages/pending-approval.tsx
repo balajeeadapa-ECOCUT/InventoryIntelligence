@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 
 interface PendingApprovalProps {
   user?: {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
   };
 }
 

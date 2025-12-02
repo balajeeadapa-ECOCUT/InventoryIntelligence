@@ -1,0 +1,173 @@
+import { storage } from "./storage";
+import { aiOrchestrator } from "./ai-orchestrator";
+
+export interface EmailAlert {
+  id: string;
+  type: "critical_stock" | "out_of_stock" | "reorder_reminder" | "daily_digest";
+  subject: string;
+  body: string;
+  recipients: string[];
+  priority: "high" | "medium" | "low";
+  productIds?: number[];
+  createdAt: Date;
+  sentAt?: Date;
+  status: "pending" | "sent" | "failed";
+}
+
+class EmailAlertService {
+  private pendingAlerts: EmailAlert[] = [];
+
+  async generateStockAlerts(): Promise<EmailAlert[]> {
+    const alerts: EmailAlert[] = [];
+    const products = await storage.getProducts();
+    const stats = await storage.getDashboardStats();
+
+    // Find critical stock products
+    const criticalProducts = products.products.filter(p => 
+      p.currentStock === 0 || p.currentStock <= (p.minStockLevel || 10) * 0.5
+    );
+
+    // Find low stock products
+    const lowStockProducts = products.products.filter(p => 
+      p.currentStock > 0 && 
+      p.currentStock <= (p.minStockLevel || 10) &&
+      p.currentStock > (p.minStockLevel || 10) * 0.5
+    );
+
+    // Generate out of stock alerts
+    const outOfStockProducts = criticalProducts.filter(p => p.currentStock === 0);
+    if (outOfStockProducts.length > 0) {
+      const productList = outOfStockProducts.map(p => `- ${p.name}`).join("\n");
+      
+      alerts.push({
+        id: `alert_${Date.now()}_oos`,
+        type: "out_of_stock",
+        subject: `URGENT: ${outOfStockProducts.length} Products Out of Stock`,
+        body: `The following products are completely out of stock and require immediate attention:\n\n${productList}\n\nPlease initiate reorders immediately to avoid customer impact.`,
+        recipients: ["admin@stockflow.com"],
+        priority: "high",
+        productIds: outOfStockProducts.map(p => p.id),
+        createdAt: new Date(),
+        status: "pending"
+      });
+    }
+
+    // Generate critical low stock alerts
+    const criticalLowProducts = criticalProducts.filter(p => p.currentStock > 0);
+    if (criticalLowProducts.length > 0) {
+      const productDetails = criticalLowProducts.map(p => 
+        `- ${p.name}: ${p.currentStock} remaining (Min: ${p.minStockLevel || 10})`
+      ).join("\n");
+      
+      alerts.push({
+        id: `alert_${Date.now()}_critical`,
+        type: "critical_stock",
+        subject: `Critical: ${criticalLowProducts.length} Products at Critically Low Stock`,
+        body: `The following products are at critically low stock levels:\n\n${productDetails}\n\nRecommended action: Place urgent reorders to prevent stockouts.`,
+        recipients: ["admin@stockflow.com"],
+        priority: "high",
+        productIds: criticalLowProducts.map(p => p.id),
+        createdAt: new Date(),
+        status: "pending"
+      });
+    }
+
+    // Generate reorder reminder for low stock items
+    if (lowStockProducts.length > 0) {
+      const productDetails = lowStockProducts.map(p => 
+        `- ${p.name}: ${p.currentStock} units (Min: ${p.minStockLevel || 10})`
+      ).join("\n");
+      
+      alerts.push({
+        id: `alert_${Date.now()}_reorder`,
+        type: "reorder_reminder",
+        subject: `Reorder Reminder: ${lowStockProducts.length} Products Need Restocking`,
+        body: `The following products are running low and should be reordered soon:\n\n${productDetails}\n\nConsider placing orders this week to maintain optimal stock levels.`,
+        recipients: ["admin@stockflow.com"],
+        priority: "medium",
+        productIds: lowStockProducts.map(p => p.id),
+        createdAt: new Date(),
+        status: "pending"
+      });
+    }
+
+    // Store alerts
+    this.pendingAlerts.push(...alerts);
+
+    return alerts;
+  }
+
+  async generateDailyDigest(): Promise<EmailAlert> {
+    const stats = await storage.getDashboardStats();
+    const products = await storage.getProducts();
+    const aiAlerts = await aiOrchestrator.generateAlertInsights();
+
+    const criticalCount = aiAlerts.filter(a => a.severity === "critical").length;
+    const warningCount = aiAlerts.filter(a => a.severity === "warning").length;
+
+    let aiRecommendations = "";
+    if (aiAlerts.length > 0) {
+      aiRecommendations = "\n\nAI Recommendations:\n" + 
+        aiAlerts.slice(0, 5).map(a => 
+          `- ${a.productName}: ${a.aiRecommendation}`
+        ).join("\n");
+    }
+
+    const digest: EmailAlert = {
+      id: `digest_${Date.now()}`,
+      type: "daily_digest",
+      subject: `Daily Inventory Digest - ${new Date().toLocaleDateString('en-IN')}`,
+      body: `
+StockFlow Daily Inventory Summary
+================================
+
+Overview:
+- Total Products: ${stats.totalProducts}
+- Low Stock Items: ${stats.lowStockItems}
+- Out of Stock: ${stats.outOfStockItems}
+- Total Inventory Value: ₹${stats.totalValue.toLocaleString('en-IN')}
+
+Alert Summary:
+- Critical Alerts: ${criticalCount}
+- Warning Alerts: ${warningCount}
+${aiRecommendations}
+
+This is an automated report generated by StockFlow AI.
+      `.trim(),
+      recipients: ["admin@stockflow.com"],
+      priority: criticalCount > 0 ? "high" : "low",
+      createdAt: new Date(),
+      status: "pending"
+    };
+
+    this.pendingAlerts.push(digest);
+    return digest;
+  }
+
+  getPendingAlerts(): EmailAlert[] {
+    return this.pendingAlerts.filter(a => a.status === "pending");
+  }
+
+  getAllAlerts(): EmailAlert[] {
+    return [...this.pendingAlerts].sort((a, b) => 
+      b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  }
+
+  markAlertAsSent(alertId: string): void {
+    const alert = this.pendingAlerts.find(a => a.id === alertId);
+    if (alert) {
+      alert.status = "sent";
+      alert.sentAt = new Date();
+    }
+  }
+
+  clearOldAlerts(): void {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    this.pendingAlerts = this.pendingAlerts.filter(a => 
+      a.createdAt > oneDayAgo || a.status === "pending"
+    );
+  }
+}
+
+export const emailAlertService = new EmailAlertService();

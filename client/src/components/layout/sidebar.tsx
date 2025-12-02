@@ -57,18 +57,19 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {navigation.map((item) => {
           const isActive = location === item.href;
           return (
-            <Link key={item.name} href={item.href}>
-              <a
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-blue-50 text-blue-600 font-medium"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-                onClick={onClose}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.name}</span>
-              </a>
+            <Link 
+              key={item.name} 
+              href={item.href}
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive
+                  ? "bg-blue-50 text-blue-600 font-medium"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+              onClick={onClose}
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
+            >
+              <item.icon className="h-5 w-5" />
+              <span>{item.name}</span>
             </Link>
           );
         })}

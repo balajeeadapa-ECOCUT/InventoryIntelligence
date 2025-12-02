@@ -14,6 +14,9 @@ import { z } from "zod";
 import express from "express";
 import fs from "fs";
 import { aiInventoryService } from "./ai-inventory";
+import { aiOrchestrator } from "./ai-orchestrator";
+import { emailAlertService } from "./email-alerts";
+import * as pdfParse from "pdf-parse";
 
 // Configure multer for Excel file uploads
 const uploadExcel = multer({
@@ -42,6 +45,21 @@ const uploadImage = multer({
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Configure multer for PDF document uploads
+const uploadPDF = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB limit for PDFs
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
     }
   }
 });
@@ -866,6 +884,229 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating reorder recommendations:", error);
       res.status(500).json({ message: "Failed to generate reorder recommendations" });
+    }
+  });
+
+  // Advanced AI Orchestrator Routes
+
+  // Natural Language Query
+  app.post("/api/ai/query", isAuthenticated, async (req: any, res) => {
+    try {
+      const { query } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Query is required" });
+      }
+
+      const result = await aiOrchestrator.processNaturalLanguageQuery(query, userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing natural language query:", error);
+      res.status(500).json({ message: "Failed to process query" });
+    }
+  });
+
+  // AI Chat
+  app.post("/api/ai/chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionId, message } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      const chatSessionId = sessionId || `session_${userId}_${Date.now()}`;
+      const response = await aiOrchestrator.chat(chatSessionId, message, userId);
+      
+      res.json({
+        sessionId: chatSessionId,
+        message: response
+      });
+    } catch (error) {
+      console.error("Error in AI chat:", error);
+      res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
+  // Get chat history
+  app.get("/api/ai/chat/:sessionId/history", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const history = aiOrchestrator.getChatHistory(sessionId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+
+  // Clear chat history
+  app.delete("/api/ai/chat/:sessionId", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      aiOrchestrator.clearChatHistory(sessionId);
+      res.json({ message: "Chat history cleared" });
+    } catch (error) {
+      console.error("Error clearing chat history:", error);
+      res.status(500).json({ message: "Failed to clear chat history" });
+    }
+  });
+
+  // Predictive Analytics
+  app.get("/api/ai/predictive-analytics", isAuthenticated, async (req, res) => {
+    try {
+      const { productId } = req.query;
+      const analytics = await aiOrchestrator.generatePredictiveAnalytics(
+        productId ? parseInt(productId as string) : undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error generating predictive analytics:", error);
+      res.status(500).json({ message: "Failed to generate predictive analytics" });
+    }
+  });
+
+  // Vendor Recommendations
+  app.post("/api/ai/vendor-recommendations", isAuthenticated, async (req, res) => {
+    try {
+      const { productName, quantity } = req.body;
+      
+      if (!productName || !quantity) {
+        return res.status(400).json({ message: "Product name and quantity are required" });
+      }
+
+      const recommendations = await aiOrchestrator.getVendorRecommendations(productName, quantity);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error getting vendor recommendations:", error);
+      res.status(500).json({ message: "Failed to get vendor recommendations" });
+    }
+  });
+
+  // Document Processing (PDF upload)
+  app.post("/api/ai/process-document", isAuthenticated, uploadPDF.single('document'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No PDF file uploaded" });
+      }
+
+      // Extract text from PDF
+      const pdfData = await (pdfParse as any).default(req.file.buffer);
+      const textContent = pdfData.text;
+
+      if (!textContent || textContent.trim().length === 0) {
+        return res.status(400).json({ message: "Could not extract text from PDF" });
+      }
+
+      // Process with AI
+      const extraction = await aiOrchestrator.extractDocumentData(textContent);
+      res.json(extraction);
+    } catch (error) {
+      console.error("Error processing document:", error);
+      res.status(500).json({ message: "Failed to process document" });
+    }
+  });
+
+  // Alert Insights
+  app.get("/api/ai/alert-insights", isAuthenticated, async (req, res) => {
+    try {
+      const alerts = await aiOrchestrator.generateAlertInsights();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error generating alert insights:", error);
+      res.status(500).json({ message: "Failed to generate alert insights" });
+    }
+  });
+
+  // Voice Query Processing
+  app.post("/api/ai/voice-query", isAuthenticated, async (req: any, res) => {
+    try {
+      const { transcription } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!transcription || typeof transcription !== 'string') {
+        return res.status(400).json({ message: "Voice transcription is required" });
+      }
+
+      const result = await aiOrchestrator.processVoiceQuery(transcription, userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing voice query:", error);
+      res.status(500).json({ message: "Failed to process voice query" });
+    }
+  });
+
+  // Email Alerts Routes
+
+  // Generate stock alerts
+  app.get("/api/alerts/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin' && user?.role !== 'manager') {
+        return res.status(403).json({ message: "Admin or manager access required" });
+      }
+
+      const alerts = await emailAlertService.generateStockAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error generating alerts:", error);
+      res.status(500).json({ message: "Failed to generate alerts" });
+    }
+  });
+
+  // Generate daily digest
+  app.get("/api/alerts/digest", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin' && user?.role !== 'manager') {
+        return res.status(403).json({ message: "Admin or manager access required" });
+      }
+
+      const digest = await emailAlertService.generateDailyDigest();
+      res.json(digest);
+    } catch (error) {
+      console.error("Error generating digest:", error);
+      res.status(500).json({ message: "Failed to generate digest" });
+    }
+  });
+
+  // Get all alerts
+  app.get("/api/alerts", isAuthenticated, async (req, res) => {
+    try {
+      const alerts = emailAlertService.getAllAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching alerts:", error);
+      res.status(500).json({ message: "Failed to fetch alerts" });
+    }
+  });
+
+  // Get pending alerts
+  app.get("/api/alerts/pending", isAuthenticated, async (req, res) => {
+    try {
+      const alerts = emailAlertService.getPendingAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching pending alerts:", error);
+      res.status(500).json({ message: "Failed to fetch pending alerts" });
+    }
+  });
+
+  // Mark alert as sent
+  app.post("/api/alerts/:id/send", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      emailAlertService.markAlertAsSent(req.params.id);
+      res.json({ message: "Alert marked as sent" });
+    } catch (error) {
+      console.error("Error marking alert as sent:", error);
+      res.status(500).json({ message: "Failed to mark alert as sent" });
     }
   });
 

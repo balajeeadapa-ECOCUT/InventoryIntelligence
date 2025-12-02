@@ -2,8 +2,8 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { AIChatWidget } from "@/components/ai/ai-chat-widget";
 
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -19,12 +19,10 @@ import AIInsights from "@/pages/ai-insights";
 function Router() {
   const { isAuthenticated, isLoading, isPendingApproval, isRejected, approvalData } = useAuth();
 
-  // Show pending approval page for users awaiting admin approval
   if (isPendingApproval) {
     return <PendingApproval user={approvalData?.user} />;
   }
 
-  // Show rejection message for denied users
   if (isRejected) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -34,6 +32,7 @@ function Router() {
           <button 
             onClick={() => window.location.href = "/api/logout"}
             className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            data-testid="signout-btn"
           >
             Sign Out
           </button>
@@ -62,13 +61,22 @@ function Router() {
   );
 }
 
+function AuthenticatedContent() {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <>
+      <Router />
+      {isAuthenticated && <AIChatWidget />}
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <Toaster />
+      <AuthenticatedContent />
     </QueryClientProvider>
   );
 }
