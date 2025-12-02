@@ -84,6 +84,8 @@ export const stockMovements = pgTable("stock_movements", {
   previousStock: integer("previous_stock").notNull(),
   newStock: integer("new_stock").notNull(),
   reason: varchar("reason", { length: 255 }),
+  invoiceNumber: varchar("invoice_number", { length: 100 }),
+  invoiceDate: timestamp("invoice_date"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
