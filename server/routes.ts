@@ -588,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User ID not found" });
       }
 
-      const { productId, type, quantity, reason, notes } = req.body;
+      const { productId, type, quantity, reason, notes, invoiceNumber, invoiceDate } = req.body;
 
       // Validate input
       if (!productId || !type || !quantity || !reason) {
@@ -640,6 +640,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         previousStock: product.currentStock,
         newStock,
         reason,
+        invoiceNumber: invoiceNumber || null,
+        invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
         notes: notes || null,
       };
 

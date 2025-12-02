@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Edit } from "lucide-react";
+import { Plus, Minus, Edit, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 export function RecentActivity() {
-  const { data: movements, isLoading } = useQuery({
+  const { data: movements, isLoading } = useQuery<any[]>({
     queryKey: ["/api/stock-movements"],
     refetchInterval: 30000, // Refetch every 30 seconds
   });
@@ -71,16 +72,29 @@ export function RecentActivity() {
           {movements?.slice(0, 3).map((movement: any) => {
             const iconConfig = getIcon(movement.type);
             return (
-              <div key={movement.id} className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50">
+              <div key={movement.id} className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50" data-testid={`movement-${movement.id}`}>
                 <div className={`w-10 h-10 ${iconConfig.bg} rounded-lg flex items-center justify-center`}>
                   <iconConfig.icon className={`h-4 w-4 ${iconConfig.color}`} />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">{movement.product.name}</p>
                   <p className="text-sm text-gray-600">
                     {getActionText(movement.type, movement.quantity)} • {" "}
                     {formatDistanceToNow(new Date(movement.createdAt), { addSuffix: true })}
                   </p>
+                  {movement.invoiceNumber && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-xs font-normal flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        {movement.invoiceNumber}
+                        {movement.invoiceDate && (
+                          <span className="text-muted-foreground">
+                            • {format(new Date(movement.invoiceDate), "dd/MM/yy")}
+                          </span>
+                        )}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 <span className={`font-medium ${iconConfig.color}`}>
                   {movement.type === "IN" ? "+" : movement.type === "OUT" ? "-" : "±"}{movement.quantity}

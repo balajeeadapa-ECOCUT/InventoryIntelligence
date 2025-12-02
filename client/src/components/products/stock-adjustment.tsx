@@ -8,18 +8,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, RotateCcw } from "lucide-react";
+import { TrendingUp, TrendingDown, RotateCcw, CalendarIcon, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const stockAdjustmentSchema = z.object({
   productId: z.number(),
   type: z.enum(["IN", "OUT", "ADJUSTMENT"]),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   reason: z.string().min(1, "Reason is required").max(100, "Reason must be less than 100 characters"),
+  invoiceNumber: z.string().max(100, "Invoice number must be less than 100 characters").optional().nullable(),
+  invoiceDate: z.date().optional().nullable(),
   notes: z.string().optional(),
 });
 
@@ -52,6 +58,8 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
       type: "IN",
       quantity: 1,
       reason: "",
+      invoiceNumber: "",
+      invoiceDate: null,
       notes: "",
     },
   });
@@ -272,6 +280,82 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
               )}
             />
 
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="invoiceNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      Invoice/DC No.
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="INV-001 or DC-001"
+                        {...field}
+                        value={field.value || ""}
+                        data-testid="input-invoice-number"
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      For GST compliance
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="invoiceDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1">
+                      <CalendarIcon className="h-3 w-3" />
+                      Invoice/DC Date
+                    </FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="button-invoice-date"
+                          >
+                            {field.value ? (
+                              format(field.value, "dd/MM/yyyy")
+                            ) : (
+                              <span>Pick date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value || undefined}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("2020-01-01")
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription className="text-xs">
+                      Document date
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="notes"
@@ -283,6 +367,7 @@ export function StockAdjustment({ open, onOpenChange, product }: StockAdjustment
                       placeholder="Additional notes about this stock movement..."
                       className="resize-none"
                       {...field}
+                      data-testid="textarea-notes"
                     />
                   </FormControl>
                   <FormMessage />
