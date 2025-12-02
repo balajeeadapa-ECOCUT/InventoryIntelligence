@@ -14,16 +14,13 @@ export default function Employees() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: pendingEmployees = [], isLoading } = useQuery({
+  const { data: pendingEmployees = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/pending-employees"],
   });
 
   const approvalMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "approved" | "rejected" }) => {
-      await apiRequest(`/api/approve-employee/${id}`, {
-        method: "POST",
-        body: JSON.stringify({ status }),
-      });
+      await apiRequest("POST", `/api/approve-employee/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pending-employees"] });
