@@ -167,24 +167,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
       
-      // Sample data for template
+      // Template with headers, data types row, and sample data
+      // Row 1: Headers
+      // Row 2: Data types (for user reference)
+      // Row 3: Sample data
       const templateData = [
-        {
-          "Product Name": "Example Product",
-          "Description": "Product description",
-          "SKU": "EX001",
-          "Barcode": "1234567890123",
-          "Category": "Electronics",
-          "Unit Price": "999.99",
-          "Current Stock": "50",
-          "Min Stock Level": "10",
-          "Max Stock Level": "100",
-          "Image URL": "https://example.com/image.jpg"
-        }
+        // Headers row
+        ["Product Name", "Description", "SKU", "Barcode", "Category", "Unit Price", "Current Stock", "Min Stock Level", "Max Stock Level", "Image URL"],
+        // Data types row - clearly indicates expected format
+        ["TEXT (Required)", "TEXT (Optional)", "TEXT (Required)", "TEXT (Optional)", "TEXT (Optional)", "NUMBER (Required)", "NUMBER (Optional)", "NUMBER (Optional)", "NUMBER (Optional)", "TEXT (Optional)"],
+        // Sample data row
+        ["Example Product", "Product description here", "SKU-001", "1234567890123", "Electronics", 999.99, 50, 10, 100, "https://example.com/image.jpg"]
       ];
       
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      // Create worksheet from array of arrays
+      const worksheet = XLSX.utils.aoa_to_sheet(templateData);
+      
+      // Set column widths for better readability
+      worksheet['!cols'] = [
+        { wch: 20 },  // Product Name
+        { wch: 25 },  // Description
+        { wch: 18 },  // SKU
+        { wch: 18 },  // Barcode
+        { wch: 15 },  // Category
+        { wch: 18 },  // Unit Price
+        { wch: 18 },  // Current Stock
+        { wch: 18 },  // Min Stock Level
+        { wch: 18 },  // Max Stock Level
+        { wch: 30 },  // Image URL
+      ];
       
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
@@ -234,13 +245,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (let i = 0; i < data.length; i++) {
         const row = data[i] as any;
         
+        // Skip the data types row (contains "TEXT" or "NUMBER" indicators)
+        const firstValue = String(row["Product Name"] || row["name"] || "");
+        if (firstValue.includes("TEXT") || firstValue.includes("NUMBER") || firstValue.includes("Required") || firstValue.includes("Optional")) {
+          continue;
+        }
+        
         try {
-          // Map Excel columns to our schema
+          // Map Excel columns to our schema - ensure SKU and Barcode are treated as TEXT
+          const rawSku = row["SKU"] || row["sku"];
+          const rawBarcode = row["Barcode"] || row["barcode"];
+          
           const productData = {
             name: row["Product Name"] || row["name"],
             description: row["Description"] || row["description"] || "",
-            sku: row["SKU"] || row["sku"],
-            barcode: row["Barcode"] || row["barcode"] || "",
+            sku: rawSku !== undefined && rawSku !== null ? String(rawSku) : "",
+            barcode: rawBarcode !== undefined && rawBarcode !== null ? String(rawBarcode) : "",
             categoryId: null as number | null,
             unitPrice: Number(row["Unit Price"] || row["unitPrice"] || 0),
             currentStock: Number(row["Current Stock"] || row["currentStock"] || 0),

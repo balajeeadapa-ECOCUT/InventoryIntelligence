@@ -244,10 +244,33 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
           )}
 
           {/* Template Format Info */}
-          <div className="text-xs text-gray-500 space-y-1">
-            <p><strong>Required columns:</strong> Product Name, SKU, Unit Price</p>
-            <p><strong>Optional columns:</strong> Description, Barcode, Category, Current Stock, Min Stock Level, Max Stock Level, Image URL</p>
+          <div className="text-xs text-gray-500 space-y-2">
+            <p className="font-semibold text-gray-700">Field Types Reference:</p>
+            <div className="grid grid-cols-2 gap-1 bg-gray-100 p-2 rounded">
+              <div className="font-medium text-green-700">TEXT Fields:</div>
+              <div className="font-medium text-blue-700">NUMBER Fields:</div>
+              <div>
+                <span className="text-red-600">*</span> Product Name (Required)<br/>
+                <span className="text-red-600">*</span> SKU (Required)<br/>
+                Description<br/>
+                Barcode<br/>
+                Category<br/>
+                Image URL
+              </div>
+              <div>
+                <span className="text-red-600">*</span> Unit Price (Required)<br/>
+                Current Stock<br/>
+                Min Stock Level<br/>
+                Max Stock Level
+              </div>
+            </div>
+            <p className="text-amber-600 font-medium">
+              Important: SKU and Barcode must be entered as TEXT, not numbers. Format cells as "Text" in Excel.
+            </p>
             <p><strong>Supported formats:</strong> .xlsx, .xls (Max file size: 5MB)</p>
+            <p className="text-gray-600">
+              The template includes a data types row for reference - this row will be automatically skipped during import.
+            </p>
           </div>
 
           <div className="flex justify-end space-x-2">
