@@ -1,8 +1,8 @@
-# StockFlow - Inventory Management System
+# EcoCut Smart Inventory - Inventory Management System
 
 ## Overview
 
-StockFlow is a full-stack inventory management system built with React, Express.js, and PostgreSQL. It provides real-time inventory tracking with role-based authentication using Replit's OIDC system. The application features a modern UI with shadcn/ui components and real-time updates via WebSocket connections.
+EcoCut Smart Inventory is a full-stack inventory management system built with React, Express.js, and PostgreSQL. It provides real-time inventory tracking with role-based authentication using Replit's OIDC system. The application features a modern UI with shadcn/ui components and real-time updates via WebSocket connections.
 
 ## System Architecture
 

@@ -181,7 +181,7 @@ export function AIChatWidget() {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">StockFlow AI</h3>
+                  <h3 className="font-semibold text-white">EcoCut AI</h3>
                   <p className="text-xs text-white/70">Powered by GPT-4o & Gemini</p>
                 </div>
               </div>
@@ -353,7 +353,7 @@ export function AIChatWidget() {
             data-testid="minimized-chat"
           >
             <Bot className="w-5 h-5 text-white" />
-            <span className="text-white text-sm font-medium">StockFlow AI</span>
+            <span className="text-white text-sm font-medium">EcoCut AI</span>
             <Maximize2 className="w-4 h-4 text-white" />
           </motion.div>
         )}

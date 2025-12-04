@@ -11,7 +11,7 @@ export default function Landing() {
             <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
               <Package className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900">StockFlow</h1>
+            <h1 className="text-4xl font-bold text-gray-900">EcoCut Smart Inventory</h1>
           </div>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Professional inventory management system with real-time tracking and employee access control
@@ -80,7 +80,7 @@ export default function Landing() {
             Ready to streamline your inventory management?
           </h2>
           <p className="text-gray-600 mb-8">
-            Join thousands of businesses that trust StockFlow for their inventory needs
+            Join thousands of businesses that trust EcoCut Smart Inventory for their inventory needs
           </p>
           <Button
             size="lg"
