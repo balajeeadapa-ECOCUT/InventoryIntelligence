@@ -19,6 +19,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   sku: z.string().min(1, "SKU is required"),
   barcode: z.string().optional(),
+  binLocation: z.string().optional(),
   categoryId: z.number().optional(),
   unitPrice: z.string().min(1, "Unit price is required"),
   currentStock: z.number().min(0, "Stock cannot be negative"),
@@ -50,6 +51,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       description: "",
       sku: "",
       barcode: "",
+      binLocation: "",
       categoryId: undefined,
       unitPrice: "",
       currentStock: 0,
@@ -67,6 +69,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         description: product.description || "",
         sku: product.sku || "",
         barcode: product.barcode || "",
+        binLocation: product.binLocation || "",
         categoryId: product.categoryId || undefined,
         unitPrice: product.unitPrice?.toString() || "",
         currentStock: product.currentStock || 0,
@@ -80,6 +83,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         description: "",
         sku: "",
         barcode: "",
+        binLocation: "",
         categoryId: undefined,
         unitPrice: "",
         currentStock: 0,
@@ -198,7 +202,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="barcode"
@@ -207,6 +211,20 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                     <FormLabel>Barcode (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter barcode" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="binLocation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bin Location (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., A1-B2-C3" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

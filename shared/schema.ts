@@ -60,6 +60,7 @@ export const products = pgTable("products", {
   currentStock: integer("current_stock").notNull().default(0),
   minStockLevel: integer("min_stock_level").notNull().default(0),
   maxStockLevel: integer("max_stock_level").notNull().default(1000),
+  binLocation: varchar("bin_location", { length: 50 }),
   imageUrl: varchar("image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),

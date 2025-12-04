@@ -254,6 +254,7 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
                 <span className="text-red-600">*</span> SKU (Required)<br/>
                 Description<br/>
                 Barcode<br/>
+                Bin Location<br/>
                 Category<br/>
                 Image URL
               </div>

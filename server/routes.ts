@@ -173,11 +173,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Row 3: Sample data
       const templateData = [
         // Headers row
-        ["Product Name", "Description", "SKU", "Barcode", "Category", "Unit Price", "Current Stock", "Min Stock Level", "Max Stock Level", "Image URL"],
+        ["Product Name", "Description", "SKU", "Barcode", "Bin Location", "Category", "Unit Price", "Current Stock", "Min Stock Level", "Max Stock Level", "Image URL"],
         // Data types row - clearly indicates expected format
-        ["TEXT (Required)", "TEXT (Optional)", "TEXT (Required)", "TEXT (Optional)", "TEXT (Optional)", "NUMBER (Required)", "NUMBER (Optional)", "NUMBER (Optional)", "NUMBER (Optional)", "TEXT (Optional)"],
+        ["TEXT (Required)", "TEXT (Optional)", "TEXT (Required)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (Optional)", "NUMBER (Required)", "NUMBER (Optional)", "NUMBER (Optional)", "NUMBER (Optional)", "TEXT (Optional)"],
         // Sample data row
-        ["Example Product", "Product description here", "SKU-001", "1234567890123", "Electronics", 999.99, 50, 10, 100, "https://example.com/image.jpg"]
+        ["Example Product", "Product description here", "SKU-001", "1234567890123", "A1-B2-C3", "Electronics", 999.99, 50, 10, 100, "https://example.com/image.jpg"]
       ];
       
       // Create worksheet from array of arrays
@@ -189,6 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { wch: 25 },  // Description
         { wch: 18 },  // SKU
         { wch: 18 },  // Barcode
+        { wch: 15 },  // Bin Location
         { wch: 15 },  // Category
         { wch: 18 },  // Unit Price
         { wch: 18 },  // Current Stock
@@ -256,11 +257,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rawSku = row["SKU"] || row["sku"];
           const rawBarcode = row["Barcode"] || row["barcode"];
           
+          const rawBinLocation = row["Bin Location"] || row["binLocation"];
+          
           const productData = {
             name: row["Product Name"] || row["name"],
             description: row["Description"] || row["description"] || "",
             sku: rawSku !== undefined && rawSku !== null ? String(rawSku) : "",
             barcode: rawBarcode !== undefined && rawBarcode !== null ? String(rawBarcode) : "",
+            binLocation: rawBinLocation !== undefined && rawBinLocation !== null ? String(rawBinLocation) : "",
             categoryId: null as number | null,
             unitPrice: Number(row["Unit Price"] || row["unitPrice"] || 0),
             currentStock: Number(row["Current Stock"] || row["currentStock"] || 0),

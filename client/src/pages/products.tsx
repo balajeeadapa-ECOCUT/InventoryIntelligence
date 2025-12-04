@@ -304,6 +304,7 @@ export default function Products() {
                         <TableHead>Product</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead>Category</TableHead>
+                        <TableHead>Bin Location</TableHead>
                         <TableHead>Stock</TableHead>
                         <TableHead>Price</TableHead>
                         <TableHead>Total Value</TableHead>
@@ -364,6 +365,11 @@ export default function Products() {
                               </Badge>
                             ) : (
                               <span className="text-gray-400">Uncategorized</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {product.binLocation || (
+                              <span className="text-gray-400">—</span>
                             )}
                           </TableCell>
                           <TableCell>
