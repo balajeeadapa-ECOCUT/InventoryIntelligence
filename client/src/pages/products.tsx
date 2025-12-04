@@ -306,6 +306,7 @@ export default function Products() {
                         <TableHead>Category</TableHead>
                         <TableHead>Stock</TableHead>
                         <TableHead>Price</TableHead>
+                        <TableHead>Total Value</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -383,6 +384,9 @@ export default function Products() {
                           </TableCell>
                           <TableCell className="font-medium">
                             ₹{parseFloat(product.unitPrice.toString()).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="font-medium text-purple-700">
+                            ₹{(parseFloat(product.unitPrice.toString()) * product.currentStock).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
                             <Badge variant={
