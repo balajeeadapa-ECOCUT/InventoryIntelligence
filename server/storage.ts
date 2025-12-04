@@ -242,7 +242,7 @@ export class DatabaseStorage implements IStorage {
       isActive: result.isActive,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      category: result.category.id ? {
+      category: result.category && result.category.id ? {
         id: result.category.id,
         name: result.category.name!,
         description: result.category.description,
@@ -301,7 +301,7 @@ export class DatabaseStorage implements IStorage {
       isActive: result.isActive,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      category: result.category.id ? {
+      category: result.category && result.category.id ? {
         id: result.category.id,
         name: result.category.name!,
         description: result.category.description,
