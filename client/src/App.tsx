@@ -12,6 +12,7 @@ import InventoryView from "@/pages/inventory-view";
 import Categories from "@/pages/categories";
 import Employees from "@/pages/employees";
 import Reports from "@/pages/reports";
+import Settings from "@/pages/settings";
 import PendingApproval from "@/pages/pending-approval";
 import NotFound from "@/pages/not-found";
 import AIInsights from "@/pages/ai-insights";
@@ -54,6 +55,7 @@ function Router() {
           <Route path="/ai-insights" component={AIInsights} />
           <Route path="/employees" component={Employees} />
           <Route path="/reports" component={Reports} />
+          <Route path="/settings" component={Settings} />
         </>
       )}
       <Route component={NotFound} />

@@ -58,6 +58,7 @@ EcoCut Smart Inventory is a full-stack inventory management system built with Re
 - **Vendor Recommendations**: AI-powered supplier suggestions with scoring and ranking
 - **Document Processing**: PDF invoice/purchase order extraction using AI
 - **Email Alert System**: Automated notifications with AI-generated insights for critical stock levels
+- **Daily Stock Alerts**: Scheduled email reports at 9 AM IST with low/out-of-stock items
 - **Voice Command Support**: Hands-free inventory queries using Web Speech API
 
 ### User Interface
