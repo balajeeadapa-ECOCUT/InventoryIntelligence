@@ -8,6 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ProductForm } from "@/components/products/product-form";
 import { BarcodeScanner } from "@/components/products/barcode-scanner";
 import { BulkUpload } from "@/components/products/bulk-upload";
@@ -35,6 +45,9 @@ export default function Products() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
@@ -114,6 +127,39 @@ export default function Products() {
     });
     setSearchQuery(barcode);
     setScannerOpen(false);
+  };
+
+  const handleDelete = async () => {
+    if (!productToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/products/${productToDelete.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete product');
+      }
+      
+      toast({
+        title: "Product Deleted",
+        description: `${productToDelete.name} has been removed from inventory.`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete product",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    }
   };
 
   if (isLoading) {
@@ -436,8 +482,17 @@ export default function Products() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon">
-                                <Trash2 className="h-4 w-4" />
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  setProductToDelete(product);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                title="Delete Product"
+                                data-testid={`button-delete-product-${product.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             </div>
                           </TableCell>
@@ -503,6 +558,29 @@ export default function Products() {
         }}
         initialSelectedIds={selectedProducts}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{productToDelete?.name}"? This action cannot be undone and will remove the product from your inventory.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-delete-btn"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
