@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import { storage } from './storage';
 
@@ -14,7 +14,7 @@ interface StockAlertLog {
 class DailyStockAlertService {
   private logs: StockAlertLog[] = [];
   private transporter: nodemailer.Transporter | null = null;
-  private cronJob: cron.ScheduledTask | null = null;
+  private cronJob: ReturnType<typeof cron.schedule> | null = null;
 
   constructor() {
     this.initializeTransporter();

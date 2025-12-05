@@ -45,3 +45,8 @@ externalPort = 3001
 
 [agent]
 integrations = ["javascript_log_in_with_replit:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+DAILY_STOCK_ALERTS_ENABLED = "true"

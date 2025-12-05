@@ -16,6 +16,7 @@ import fs from "fs";
 import { aiInventoryService } from "./ai-inventory";
 import { aiOrchestrator } from "./ai-orchestrator";
 import { emailAlertService } from "./email-alerts";
+import { dailyStockAlertService } from "./daily-stock-alerts";
 import * as pdfParse from "pdf-parse";
 
 // Configure multer for Excel file uploads
@@ -1135,6 +1136,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to mark alert as sent" });
     }
   });
+
+  // Daily Stock Alert Endpoints
+  
+  // Get stock alert report preview (HTML/text)
+  app.get("/api/stock-alerts/preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin' && user?.role !== 'manager') {
+        return res.status(403).json({ message: "Admin or Manager access required" });
+      }
+
+      const report = await dailyStockAlertService.generateStockReport();
+      res.json({
+        lowStockCount: report.lowStockItems.length,
+        outOfStockCount: report.outOfStockItems.length,
+        lowStockItems: report.lowStockItems,
+        outOfStockItems: report.outOfStockItems,
+        htmlPreview: report.htmlReport,
+        textPreview: report.textReport,
+      });
+    } catch (error) {
+      console.error("Error generating stock alert preview:", error);
+      res.status(500).json({ message: "Failed to generate stock alert preview" });
+    }
+  });
+
+  // Manually trigger stock alert email
+  app.post("/api/stock-alerts/send", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const result = await dailyStockAlertService.sendDailyAlert();
+      res.json({
+        message: result.status === 'success' 
+          ? `Stock alert email sent to ${result.recipient}` 
+          : result.status === 'skipped'
+          ? `Alert skipped: ${result.error}`
+          : `Alert failed: ${result.error}`,
+        log: result,
+      });
+    } catch (error) {
+      console.error("Error sending stock alert:", error);
+      res.status(500).json({ message: "Failed to send stock alert" });
+    }
+  });
+
+  // Get stock alert logs
+  app.get("/api/stock-alerts/logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const logs = dailyStockAlertService.getLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching stock alert logs:", error);
+      res.status(500).json({ message: "Failed to fetch stock alert logs" });
+    }
+  });
+
+  // Get stock alert scheduler status
+  app.get("/api/stock-alerts/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      res.json({
+        enabled: process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false',
+        recipient: process.env.STOCK_ALERT_EMAIL || 'not configured',
+        smtpConfigured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+        scheduledTime: '9:00 AM IST (3:30 AM UTC)',
+        logs: dailyStockAlertService.getLogs().slice(0, 5),
+      });
+    } catch (error) {
+      console.error("Error fetching stock alert status:", error);
+      res.status(500).json({ message: "Failed to fetch stock alert status" });
+    }
+  });
+
+  // Start the daily stock alert scheduler
+  dailyStockAlertService.startScheduler();
 
   const httpServer = createServer(app);
 
