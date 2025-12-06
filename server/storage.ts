@@ -3,6 +3,7 @@ import {
   categories,
   products,
   stockMovements,
+  appSettings,
   type User,
   type UpsertUser,
   type Category,
@@ -13,6 +14,7 @@ import {
   type StockMovement,
   type InsertStockMovement,
   type StockMovementWithDetails,
+  type AppSetting,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, count, sum, and, or, ilike, sql } from "drizzle-orm";
@@ -58,6 +60,11 @@ export interface IStorage {
     outOfStockItems: number;
     totalValue: number;
   }>;
+  
+  // App settings operations
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string): Promise<AppSetting>;
+  getAllSettings(): Promise<AppSetting[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -469,6 +476,31 @@ export class DatabaseStorage implements IStorage {
       outOfStockItems: Number(stats.outOfStockItems) || 0,
       totalValue: Number(stats.totalValue) || 0,
     };
+  }
+
+  // App settings operations
+  async getSetting(key: string): Promise<string | null> {
+    const [setting] = await db
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.key, key));
+    return setting?.value ?? null;
+  }
+
+  async setSetting(key: string, value: string): Promise<AppSetting> {
+    const [setting] = await db
+      .insert(appSettings)
+      .values({ key, value })
+      .onConflictDoUpdate({
+        target: appSettings.key,
+        set: { value, updatedAt: new Date() },
+      })
+      .returning();
+    return setting;
+  }
+
+  async getAllSettings(): Promise<AppSetting[]> {
+    return await db.select().from(appSettings);
   }
 }
 
