@@ -33,12 +33,53 @@ interface AlertStatus {
 
 export default function Settings() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [hasChanges, setHasChanges] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
   const { data: alertStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<AlertStatus>({
     queryKey: ["/api/stock-alerts/status"],
     enabled: isAuthenticated && (user?.role === 'admin'),
+  });
+
+  // Sync local state with fetched data
+  useEffect(() => {
+    if (alertStatus) {
+      setAlertsEnabled(alertStatus.enabled);
+      setRecipientEmail(alertStatus.recipient === 'not configured' ? '' : alertStatus.recipient);
+      setHasChanges(false);
+    }
+  }, [alertStatus]);
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: async () => {
+      // Validate that we have a recipient if alerts are enabled
+      if (alertsEnabled && !recipientEmail.trim()) {
+        throw new Error("Please enter a recipient email address when alerts are enabled");
+      }
+      const response = await apiRequest("PATCH", "/api/stock-alerts/settings", {
+        enabled: alertsEnabled,
+        recipient: recipientEmail,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Settings Saved",
+        description: data.message || "Email notification settings updated successfully",
+      });
+      setHasChanges(false);
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Save",
+        description: error.message || "Could not save settings",
+        variant: "destructive",
+      });
+    },
   });
 
   const sendTestMutation = useMutation({
@@ -61,6 +102,16 @@ export default function Settings() {
       });
     },
   });
+
+  const handleEnabledChange = (checked: boolean) => {
+    setAlertsEnabled(checked);
+    setHasChanges(true);
+  };
+
+  const handleRecipientChange = (value: string) => {
+    setRecipientEmail(value);
+    setHasChanges(true);
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -142,31 +193,34 @@ export default function Settings() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {alertStatus?.enabled ? (
-                              <Badge className="bg-green-100 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Enabled
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Disabled
-                              </Badge>
-                            )}
+                            <Switch
+                              checked={alertsEnabled}
+                              onCheckedChange={handleEnabledChange}
+                              data-testid="toggle-alerts-enabled"
+                            />
+                            <span className={`text-sm font-medium ${alertsEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+                              {alertsEnabled ? 'Enabled' : 'Disabled'}
+                            </span>
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                           <div className="space-y-1">
-                            <Label className="text-base font-medium">Alert Recipient</Label>
+                            <Label htmlFor="recipient-email" className="text-base font-medium">Alert Recipient</Label>
                             <p className="text-sm text-gray-500">
                               Email address receiving stock alerts
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono">
-                              {alertStatus?.recipient || 'Not configured'}
-                            </Badge>
+                          <div className="flex items-center gap-2 w-64">
+                            <Input
+                              id="recipient-email"
+                              type="email"
+                              placeholder="email@example.com"
+                              value={recipientEmail}
+                              onChange={(e) => handleRecipientChange(e.target.value)}
+                              data-testid="input-recipient-email"
+                              className="text-right"
+                            />
                           </div>
                         </div>
 
@@ -210,11 +264,30 @@ export default function Settings() {
 
                       <Separator />
 
+                      {hasChanges && (
+                        <div className="flex items-center gap-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm text-yellow-800 font-medium">You have unsaved changes</p>
+                            <p className="text-xs text-yellow-600">Click "Save Settings" to apply your changes</p>
+                          </div>
+                          <Button
+                            onClick={() => saveSettingsMutation.mutate()}
+                            disabled={saveSettingsMutation.isPending}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                            data-testid="save-settings-btn"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+                          </Button>
+                        </div>
+                      )}
+
                       <div className="flex flex-col sm:flex-row gap-4">
                         <Button
                           onClick={() => sendTestMutation.mutate()}
                           disabled={sendTestMutation.isPending}
                           className="flex items-center gap-2"
+                          variant="outline"
                           data-testid="send-test-email-btn"
                         >
                           <Send className="h-4 w-4" />
