@@ -91,6 +91,14 @@ export const stockMovements = pgTable("stock_movements", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// App settings for storing configuration
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   stockMovements: many(stockMovements),
@@ -172,6 +180,12 @@ export type InsertProductForm = z.infer<typeof insertProductFormSchema>;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type StockMovement = typeof stockMovements.$inferSelect;
 
+// App settings schemas
+export const insertAppSettingSchema = createInsertSchema(appSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Extended types with relations
 export type ProductWithCategory = Product & {
   category: Category | null;
@@ -181,3 +195,6 @@ export type StockMovementWithDetails = StockMovement & {
   product: Product;
   user: User;
 };
+
+export type AppSetting = typeof appSettings.$inferSelect;
+export type InsertAppSetting = z.infer<typeof insertAppSettingSchema>;
