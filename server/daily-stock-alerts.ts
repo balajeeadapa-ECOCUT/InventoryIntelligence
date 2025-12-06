@@ -229,8 +229,12 @@ Generated at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
   }
 
   async sendDailyAlert(): Promise<StockAlertLog> {
-    const recipient = process.env.STOCK_ALERT_EMAIL;
-    const enabled = process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false';
+    // Get settings from database with env var fallback
+    const dbEnabled = await storage.getSetting('daily_stock_alerts_enabled');
+    const dbRecipient = await storage.getSetting('stock_alert_email');
+    
+    const enabled = dbEnabled !== null ? dbEnabled === 'true' : process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false';
+    const recipient = dbRecipient || process.env.STOCK_ALERT_EMAIL;
 
     if (!enabled) {
       const log: StockAlertLog = {

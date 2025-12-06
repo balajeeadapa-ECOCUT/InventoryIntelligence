@@ -1209,9 +1209,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
+      // Get settings from database with env var fallback
+      const dbEnabled = await storage.getSetting('daily_stock_alerts_enabled');
+      const dbRecipient = await storage.getSetting('stock_alert_email');
+      
+      const enabled = dbEnabled !== null ? dbEnabled === 'true' : process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false';
+      const recipient = dbRecipient || process.env.STOCK_ALERT_EMAIL || 'not configured';
+
       res.json({
-        enabled: process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false',
-        recipient: process.env.STOCK_ALERT_EMAIL || 'not configured',
+        enabled,
+        recipient,
         smtpConfigured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
         scheduledTime: '9:00 AM IST (3:30 AM UTC)',
         logs: dailyStockAlertService.getLogs().slice(0, 5),
@@ -1219,6 +1226,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching stock alert status:", error);
       res.status(500).json({ message: "Failed to fetch stock alert status" });
+    }
+  });
+
+  // Update stock alert settings
+  app.patch("/api/stock-alerts/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { enabled, recipient } = req.body;
+
+      if (typeof enabled === 'boolean') {
+        await storage.setSetting('daily_stock_alerts_enabled', enabled.toString());
+      }
+
+      if (typeof recipient === 'string' && recipient.trim()) {
+        await storage.setSetting('stock_alert_email', recipient.trim());
+      }
+
+      // Get updated values
+      const dbEnabled = await storage.getSetting('daily_stock_alerts_enabled');
+      const dbRecipient = await storage.getSetting('stock_alert_email');
+
+      res.json({
+        enabled: dbEnabled !== null ? dbEnabled === 'true' : process.env.DAILY_STOCK_ALERTS_ENABLED !== 'false',
+        recipient: dbRecipient || process.env.STOCK_ALERT_EMAIL || 'not configured',
+        message: 'Settings updated successfully',
+      });
+    } catch (error) {
+      console.error("Error updating stock alert settings:", error);
+      res.status(500).json({ message: "Failed to update stock alert settings" });
     }
   });
 
