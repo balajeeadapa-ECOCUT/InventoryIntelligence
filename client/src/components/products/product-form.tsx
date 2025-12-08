@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Plus } from "lucide-react";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
@@ -40,10 +41,40 @@ interface ProductFormProps {
 export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
   });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return await apiRequest("POST", "/api/categories", { name, description: "" });
+    },
+    onSuccess: async (response) => {
+      const newCategory = await response.json();
+      toast({ title: "Success", description: "Category created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setShowNewCategory(false);
+      setNewCategoryName("");
+      // Auto-select the new category
+      form.setValue("categoryId", newCategory.id);
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to create category",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      createCategoryMutation.mutate(newCategoryName.trim());
+    }
+  };
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -158,6 +189,9 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? "Edit Product" : "Add New Product"}</DialogTitle>
+          <DialogDescription>
+            {product ? "Update the product details below." : "Fill in the details to add a new product to your inventory."}
+          </DialogDescription>
         </DialogHeader>
         
         <Form {...form}>
@@ -257,23 +291,75 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select 
-                      value={field.value?.toString()} 
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {((categories as any) || []).map((category: any) => (
-                          <SelectItem key={category.id} value={category.id.toString()}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {!showNewCategory ? (
+                      <div className="flex gap-2">
+                        <Select 
+                          value={field.value?.toString()} 
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="flex-1" data-testid="select-category">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {((categories as any) || []).length === 0 ? (
+                              <SelectItem value="none" disabled>No categories available</SelectItem>
+                            ) : (
+                              ((categories as any) || []).map((category: any) => (
+                                <SelectItem key={category.id} value={category.id.toString()}>
+                                  {category.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => setShowNewCategory(true)}
+                          title="Add new category"
+                          data-testid="button-add-category"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter category name"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCategory();
+                            }
+                          }}
+                          data-testid="input-new-category"
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={handleAddCategory}
+                          disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                          data-testid="button-save-category"
+                        >
+                          {createCategoryMutation.isPending ? "..." : "Add"}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          onClick={() => {
+                            setShowNewCategory(false);
+                            setNewCategoryName("");
+                          }}
+                          data-testid="button-cancel-category"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
