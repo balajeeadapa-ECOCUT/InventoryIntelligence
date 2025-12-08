@@ -1,30 +1,49 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
-interface AuthError extends Error {
-  response?: {
-    user?: User;
-  };
+interface AuthResponse {
+  user?: User;
+  message?: string;
+  status?: string;
 }
 
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery<User>({
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, error } = useQuery<User, Error>({
     queryKey: ["/api/auth/user"],
     retry: false,
+    staleTime: 1000 * 60 * 5,
   });
 
-  const authError = error as AuthError | null;
+  const errorMessage = error?.message || "";
   
-  // Check if user is pending approval or rejected
-  const isPendingApproval = authError?.message?.includes("Account pending approval");
-  const isRejected = authError?.message?.includes("Account access denied");
+  const isPendingApproval = errorMessage.includes("pending approval") || 
+                            errorMessage.includes("403");
+  const isRejected = errorMessage.includes("access denied") || 
+                     errorMessage.includes("rejected");
+
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      // Fallback to Replit logout
+    }
+    queryClient.clear();
+    window.location.href = "/login";
+  };
+
+  const refreshAuth = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  };
 
   return {
-    user: user as User | undefined,
+    user: data as User | undefined,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!data && !isPendingApproval && !isRejected,
     isPendingApproval,
     isRejected,
-    approvalData: isPendingApproval && authError?.response ? authError.response : null,
+    logout,
+    refreshAuth,
   };
 }

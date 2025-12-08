@@ -1,18 +1,16 @@
-import { Clock, Mail, Shield } from "lucide-react";
+import { Clock, Mail, Shield, Package } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
-interface PendingApprovalProps {
-  user?: {
-    firstName?: string | null;
-    lastName?: string | null;
-    email?: string | null;
-  };
-}
-
-export default function PendingApproval({ user }: PendingApprovalProps) {
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+export default function PendingApproval() {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      // Fallback
+    }
+    window.location.href = "/login";
   };
 
   return (
@@ -31,10 +29,7 @@ export default function PendingApproval({ user }: PendingApprovalProps) {
           <CardContent className="space-y-4">
             <div className="text-center space-y-3">
               <p className="text-sm text-gray-600">
-                Hello {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.email || 'there'
-                }!
+                Thank you for signing up!
               </p>
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
