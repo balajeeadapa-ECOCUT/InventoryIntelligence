@@ -513,20 +513,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isActive: true
           };
 
-          // Find category ID by name
+          // Find category ID by name, or auto-create if not exists
           const categoryName = row["Category"] || row["category"];
           if (categoryName) {
-            const categoryId = categoryMap.get(String(categoryName).toLowerCase());
+            const categoryNameStr = String(categoryName).trim();
+            const categoryNameLower = categoryNameStr.toLowerCase();
+            let categoryId = categoryMap.get(categoryNameLower);
+            
+            if (!categoryId) {
+              // Auto-create the category
+              try {
+                const newCategory = await storage.createCategory({
+                  name: categoryNameStr,
+                  description: ""
+                });
+                categoryId = newCategory.id;
+                categoryMap.set(categoryNameLower, categoryId);
+                categories.push(newCategory);
+              } catch (categoryError) {
+                // Check if it's a duplicate error (race condition)
+                const existingCategories = await storage.getCategories();
+                const foundCategory = existingCategories.find(
+                  c => c.name.toLowerCase() === categoryNameLower
+                );
+                if (foundCategory) {
+                  categoryId = foundCategory.id;
+                  categoryMap.set(categoryNameLower, categoryId);
+                } else {
+                  rowErrors.push({
+                    row: rowNumber,
+                    field: "Category",
+                    errorType: "CATEGORY_CREATE_ERROR",
+                    message: `Failed to create category '${categoryNameStr}'`,
+                    value: categoryName
+                  });
+                }
+              }
+            }
+            
             if (categoryId) {
               productData.categoryId = categoryId;
-            } else {
-              rowErrors.push({
-                row: rowNumber,
-                field: "Category",
-                errorType: "CATEGORY_NOT_FOUND",
-                message: `Category '${categoryName}' was not found. Available categories: ${categories.map(c => c.name).join(', ')}`,
-                value: categoryName
-              });
             }
           }
 
