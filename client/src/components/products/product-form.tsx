@@ -20,7 +20,6 @@ const productSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   barcode: z.string().optional(),
   binLocation: z.string().optional(),
-  supplierName: z.string().optional(),
   categoryId: z.number().optional(),
   unitPrice: z.string().min(1, "Unit price is required"),
   currentStock: z.number().min(0, "Stock cannot be negative"),
@@ -53,7 +52,6 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       sku: "",
       barcode: "",
       binLocation: "",
-      supplierName: "",
       categoryId: undefined,
       unitPrice: "",
       currentStock: 0,
@@ -72,7 +70,6 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         sku: product.sku || "",
         barcode: product.barcode || "",
         binLocation: product.binLocation || "",
-        supplierName: product.supplierName || "",
         categoryId: product.categoryId || undefined,
         unitPrice: product.unitPrice?.toString() || "",
         currentStock: product.currentStock || 0,
@@ -87,7 +84,6 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         sku: "",
         barcode: "",
         binLocation: "",
-        supplierName: "",
         categoryId: undefined,
         unitPrice: "",
         currentStock: 0,
@@ -263,20 +259,6 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="supplierName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supplier Name (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter supplier name" {...field} data-testid="input-supplier-name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
