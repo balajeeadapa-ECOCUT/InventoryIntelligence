@@ -255,6 +255,7 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
                 Description<br/>
                 Barcode<br/>
                 Bin Location<br/>
+                Supplier Name<br/>
                 Category<br/>
                 Image URL
               </div>
