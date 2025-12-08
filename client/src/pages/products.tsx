@@ -26,6 +26,7 @@ import { StockAdjustment } from "@/components/products/stock-adjustment";
 import { QRLabelPrinter, PrintQRButton } from "@/components/inventory/qr-label-printer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions, Can } from "@/lib/permissions";
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useQueryClient } from "@tanstack/react-query";
@@ -52,6 +53,7 @@ export default function Products() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const { isAuthenticated, isLoading } = useAuth();
+  const { data: permissionsData } = usePermissions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -415,7 +417,9 @@ export default function Products() {
                         <TableHead>Category</TableHead>
                         <TableHead>Bin Location</TableHead>
                         <TableHead>Stock</TableHead>
-                        <TableHead>Price</TableHead>
+                        <Can permission="canViewPrices">
+<TableHead>Price</TableHead>
+                          </Can>
                         <TableHead>Total Value</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -497,9 +501,11 @@ export default function Products() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <Can permission="canViewPrices">
+<TableCell className="font-medium">
                             ₹{parseFloat(product.unitPrice.toString()).toFixed(2)}
                           </TableCell>
+                            </Can>
                           <TableCell className="font-medium text-purple-700">
                             ₹{(parseFloat(product.unitPrice.toString()) * product.currentStock).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>

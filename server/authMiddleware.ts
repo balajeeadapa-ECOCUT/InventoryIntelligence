@@ -99,7 +99,7 @@ export function requirePermission(permission: keyof typeof ROLE_PERMISSIONS.admi
   };
 }
 
-// Helper function to check if user has permission (for use in code logic)
+// Helper function to check if user has permission
 export function hasPermission(
   userRole: UserRole,
   permission: keyof typeof ROLE_PERMISSIONS.admin

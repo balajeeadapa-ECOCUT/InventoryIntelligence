@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./replitAuth"
+  import { requireAuth, requireRole, requirePermission, attachPermissions } from "./authMiddleware";;
 import {
   insertCategorySchema,
   insertProductFormSchema,
@@ -217,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk upload products from Excel file
-  app.post('/api/products/bulk-upload', isAuthenticated, uploadExcel.single('file'), async (req: any, res) => {
+  app.post('/api/products/bulk-upload', isAuthenticated, requirePermission("canManageProducts"), uploadExcel.single('file'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1237,6 +1238,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
+
+      // API endpoint to get current user's role and permissions
+      app.get("/api/user/permissions", requireAuth, attachPermissions, async (req, res) => {
+        try {
+          if (!req.user) {
+            return res.status(401).json({ error: "Not authenticated" });
+          }
+
+          const permissions = getUserPermissions(req.user.role);
+
+          res.json({
+            user: {
+              id: req.user.id,
+              email: req.user.email,
+              firstName: req.user.firstName,
+              lastName: req.user.lastName,
+              role: req.user.role,
+            },
+            permissions,
+          });
+        } catch (error) {
+          console.error("Error fetching user permissions:", error);
+          res.status(500).json({ error: "Failed to fetch permissions" });
+        }
+      });
       const { enabled, recipient } = req.body;
 
       if (typeof enabled === 'boolean') {
