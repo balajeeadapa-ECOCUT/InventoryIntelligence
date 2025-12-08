@@ -28,7 +28,9 @@ export interface IStorage {
   
   // Employee approval operations
   getPendingEmployees(): Promise<User[]>;
+  getAllEmployees(): Promise<User[]>;
   updateUserStatus(id: string, status: "pending" | "approved" | "rejected", role?: "admin" | "manager" | "sales_team"): Promise<User>;
+  deleteEmployee(id: string): Promise<void>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -122,6 +124,17 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.status, "pending"))
       .orderBy(asc(users.createdAt));
+  }
+
+  async getAllEmployees(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(asc(users.firstName), asc(users.lastName));
+  }
+
+  async deleteEmployee(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async updateUserStatus(id: string, status: "pending" | "approved" | "rejected", role?: "admin" | "manager" | "sales_team"): Promise<User> {

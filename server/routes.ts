@@ -146,7 +146,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const pendingEmployees = await storage.getPendingEmployees();
-      res.json(pendingEmployees);
+      // Sanitize employee data - never return password hashes
+      const sanitizedPending = pendingEmployees.map(emp => ({
+        id: emp.id,
+        email: emp.email,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        role: emp.role,
+        status: emp.status,
+        phone: emp.phone,
+        profileImageUrl: emp.profileImageUrl,
+        createdAt: emp.createdAt,
+      }));
+      res.json(sanitizedPending);
     } catch (error) {
       console.error("Error fetching pending employees:", error);
       res.status(500).json({ message: "Failed to fetch pending employees" });
@@ -174,10 +186,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedUser = await storage.updateUserStatus(req.params.id, status, role);
-      res.json(updatedUser);
+      // Sanitize response - never return password hash
+      res.json({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        status: updatedUser.status,
+        phone: updatedUser.phone,
+        profileImageUrl: updatedUser.profileImageUrl,
+        createdAt: updatedUser.createdAt,
+      });
     } catch (error) {
       console.error("Error updating employee status:", error);
       res.status(500).json({ message: "Failed to update employee status" });
+    }
+  });
+
+  // Get all employees (admin only)
+  app.get('/api/employees', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const employees = await storage.getAllEmployees();
+      // Sanitize employee data - never return password hashes
+      const sanitizedEmployees = employees.map(emp => ({
+        id: emp.id,
+        email: emp.email,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        role: emp.role,
+        status: emp.status,
+        phone: emp.phone,
+        profileImageUrl: emp.profileImageUrl,
+        createdAt: emp.createdAt,
+      }));
+      res.json(sanitizedEmployees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Failed to fetch employees" });
     }
   });
 
@@ -192,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { role } = req.body;
 
-      if (!['admin', 'manager', 'employee'].includes(role)) {
+      if (!['admin', 'manager', 'sales_team'].includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
 
@@ -201,6 +254,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Delete employee (admin only)
+  app.delete('/api/employees/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete employees" });
+      }
+
+      const { id } = req.params;
+      
+      // Prevent deleting yourself
+      if (id === currentUser.id) {
+        return res.status(400).json({ message: "You cannot delete your own account" });
+      }
+
+      await storage.deleteEmployee(id);
+      res.json({ message: "Employee deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(500).json({ message: "Failed to delete employee" });
     }
   });
 
