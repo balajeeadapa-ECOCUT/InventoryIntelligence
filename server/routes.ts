@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth"
-  import { requireAuth, requireRole, requirePermission, attachPermissions } from "./authMiddleware";;
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requireAuth, requireRole, requirePermission, attachPermissions } from "./authMiddleware";
+import { setupAuthRoutes } from "./authRoutes";
 import {
   insertCategorySchema,
   insertProductFormSchema,
@@ -67,17 +68,38 @@ const uploadPDF = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // Auth middleware (Replit Auth)
   await setupAuth(app);
+  
+  // Email/password auth routes
+  setupAuthRoutes(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth routes - supports both Replit Auth and email/password auth
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      let userId: string | undefined;
+      
+      // Check session-based auth first (email/password)
+      if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      // Fall back to Replit Auth
+      else if (req.user?.claims?.sub) {
+        userId = req.user.claims.sub;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
       const user = await storage.getUser(userId);
       
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
       // Check if user is pending approval
-      if (user && user.status === 'pending') {
+      if (user.status === 'pending') {
         return res.status(403).json({ 
           message: "Account pending approval", 
           status: "pending",
@@ -86,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if user is rejected
-      if (user && user.status === 'rejected') {
+      if (user.status === 'rejected') {
         return res.status(403).json({ 
           message: "Account access denied", 
           status: "rejected" 
