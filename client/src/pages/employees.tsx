@@ -5,13 +5,17 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { UserCheck, UserX, Clock, Users } from "lucide-react";
 import type { User } from "@shared/schema";
 
+type UserRole = "admin" | "manager" | "sales_team";
+
 export default function Employees() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const { toast } = useToast();
 
   const { data: pendingEmployees = [], isLoading } = useQuery<User[]>({
@@ -19,8 +23,8 @@ export default function Employees() {
   });
 
   const approvalMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "approved" | "rejected" }) => {
-      await apiRequest("POST", `/api/approve-employee/${id}`, { status });
+    mutationFn: async ({ id, status, role }: { id: string; status: "approved" | "rejected"; role?: UserRole }) => {
+      await apiRequest("POST", `/api/approve-employee/${id}`, { status, role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pending-employees"] });
@@ -38,8 +42,13 @@ export default function Employees() {
     },
   });
 
-  const handleApproval = (id: string, status: "approved" | "rejected") => {
-    approvalMutation.mutate({ id, status });
+  const handleApproval = (id: string, status: "approved" | "rejected", existingRole?: string) => {
+    const role = selectedRoles[id] || (existingRole as UserRole) || "sales_team";
+    approvalMutation.mutate({ id, status, role: status === "approved" ? role : undefined });
+  };
+
+  const handleRoleChange = (userId: string, role: UserRole) => {
+    setSelectedRoles(prev => ({ ...prev, [userId]: role }));
   };
 
   const getStatusBadge = (status: string) => {
@@ -123,25 +132,45 @@ export default function Employees() {
                           </div>
                         </div>
 
-                        <div className="flex space-x-2">
-                          <Button
-                            onClick={() => handleApproval(employee.id, "approved")}
-                            disabled={approvalMutation.isPending}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <UserCheck className="w-4 h-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            onClick={() => handleApproval(employee.id, "rejected")}
-                            disabled={approvalMutation.isPending}
-                            size="sm"
-                            variant="destructive"
-                          >
-                            <UserX className="w-4 h-4 mr-1" />
-                            Reject
-                          </Button>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-500 mb-1">Assign Role</span>
+                            <Select
+                              value={selectedRoles[employee.id] || (employee.role as UserRole) || "sales_team"}
+                              onValueChange={(value) => handleRoleChange(employee.id, value as UserRole)}
+                            >
+                              <SelectTrigger className="w-[140px]" data-testid={`select-role-${employee.id}`}>
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="manager">Manager</SelectItem>
+                                <SelectItem value="sales_team">Sales Team</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              onClick={() => handleApproval(employee.id, "approved", employee.role)}
+                              disabled={approvalMutation.isPending}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              data-testid={`button-approve-${employee.id}`}
+                            >
+                              <UserCheck className="w-4 h-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              onClick={() => handleApproval(employee.id, "rejected", employee.role)}
+                              disabled={approvalMutation.isPending}
+                              size="sm"
+                              variant="destructive"
+                              data-testid={`button-reject-${employee.id}`}
+                            >
+                              <UserX className="w-4 h-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}

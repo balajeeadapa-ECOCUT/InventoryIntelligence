@@ -28,7 +28,7 @@ export interface IStorage {
   
   // Employee approval operations
   getPendingEmployees(): Promise<User[]>;
-  updateUserStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<User>;
+  updateUserStatus(id: string, status: "pending" | "approved" | "rejected", role?: "admin" | "manager" | "sales_team"): Promise<User>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -124,13 +124,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(users.createdAt));
   }
 
-  async updateUserStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<User> {
+  async updateUserStatus(id: string, status: "pending" | "approved" | "rejected", role?: "admin" | "manager" | "sales_team"): Promise<User> {
+    const updateData: Record<string, any> = {
+      status,
+      updatedAt: new Date(),
+    };
+    
+    // Only update role if provided and status is approved
+    if (role && status === "approved") {
+      updateData.role = role;
+    }
+    
     const [user] = await db
       .update(users)
-      .set({
-        status,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(users.id, id))
       .returning();
     return user;

@@ -162,12 +162,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      const { status } = req.body;
+      const { status, role } = req.body;
       if (!["approved", "rejected"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
       
-      const updatedUser = await storage.updateUserStatus(req.params.id, status);
+      // Validate role if provided
+      const validRoles = ["admin", "manager", "sales_team"];
+      if (role && !validRoles.includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+      
+      const updatedUser = await storage.updateUserStatus(req.params.id, status, role);
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating employee status:", error);
