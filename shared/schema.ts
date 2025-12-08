@@ -91,6 +91,7 @@ export const products = pgTable("products", {
   sku: varchar("sku", { length: 100 }).notNull().unique(),
   barcode: varchar("barcode", { length: 100 }),
   binLocation: varchar("bin_location", { length: 100 }),
+  supplierName: varchar("supplier_name", { length: 255 }),
   categoryId: integer("category_id").references(() => categories.id),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   currentStock: integer("current_stock").default(0).notNull(),
@@ -112,6 +113,7 @@ export const insertProductFormSchema = insertProductSchema.extend({
   maxStockLevel: z.string().or(z.number()).optional(),
   categoryId: z.string().or(z.number()).nullable().optional(),
   binLocation: z.string().nullable().optional(),
+  supplierName: z.string().nullable().optional(),
 });
 
 export type ProductWithCategory = Product & {

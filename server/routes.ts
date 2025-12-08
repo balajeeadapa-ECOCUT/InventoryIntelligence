@@ -469,6 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sku: validatedData.sku,
         barcode: validatedData.barcode,
         binLocation: validatedData.binLocation,
+        supplierName: validatedData.supplierName,
         categoryId: validatedData.categoryId,
         unitPrice: validatedData.unitPrice.toString(), // Convert number to string for Drizzle decimal type
         currentStock: validatedData.currentStock,
