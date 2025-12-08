@@ -277,7 +277,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = {
         successful: 0,
+        skipped: 0,
         failed: 0,
+        skippedRows: [] as { row: number; sku: string; reason: string }[],
         errors: [] as {
           row: number;
           field?: string;
@@ -335,26 +337,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rawMinStockLevel = row["Min Stock Level"] || row["minStockLevel"];
         const rawMaxStockLevel = row["Max Stock Level"] || row["maxStockLevel"];
 
-        // Validate SKU uniqueness
+        // Check SKU - skip if already exists in database
         const skuValue = rawSku !== undefined && rawSku !== null ? String(rawSku).trim() : "";
         if (skuValue) {
           const skuLower = skuValue.toLowerCase();
           if (existingSkus.has(skuLower)) {
-            rowErrors.push({
+            // Skip this row - SKU already exists
+            results.skipped++;
+            results.skippedRows.push({
               row: rowNumber,
-              field: "SKU",
-              errorType: "DUPLICATE_SKU",
-              message: `SKU '${skuValue}' already exists in the database. Each product must have a unique SKU.`,
-              value: skuValue
+              sku: skuValue,
+              reason: "SKU already exists in database"
             });
+            continue;
           } else if (batchSkus.has(skuLower)) {
-            rowErrors.push({
+            // Skip duplicate within same batch
+            results.skipped++;
+            results.skippedRows.push({
               row: rowNumber,
-              field: "SKU",
-              errorType: "DUPLICATE_SKU_IN_BATCH",
-              message: `SKU '${skuValue}' is duplicated within this upload file. Each row must have a unique SKU.`,
-              value: skuValue
+              sku: skuValue,
+              reason: "Duplicate SKU within this upload file"
             });
+            continue;
           }
           batchSkus.add(skuLower);
         }
@@ -612,13 +616,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({
-        message: `Bulk upload completed. ${results.successful} products added, ${results.failed} failed.`,
+        message: `Bulk upload completed. ${results.successful} products added, ${results.skipped} skipped (already exist), ${results.failed} had errors.`,
         results,
         summary: {
           totalRows: data.length,
-          processed: results.successful + results.failed,
+          processed: results.successful + results.skipped + results.failed,
           successful: results.successful,
+          skipped: results.skipped,
           failed: results.failed,
+          skippedRows: results.skippedRows,
           errorsByType: results.errors.reduce((acc, err) => {
             acc[err.errorType] = (acc[err.errorType] || 0) + 1;
             return acc;

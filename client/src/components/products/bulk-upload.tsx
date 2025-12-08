@@ -22,9 +22,17 @@ interface UploadError {
   value?: any;
 }
 
+interface SkippedRow {
+  row: number;
+  sku: string;
+  reason: string;
+}
+
 interface UploadResult {
   successful: number;
+  skipped: number;
   failed: number;
+  skippedRows: SkippedRow[];
   errors: UploadError[];
 }
 
@@ -104,9 +112,14 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
 
+      // Invalidate categories query too since new categories may have been created
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+
+      const skippedText = data.results.skipped > 0 ? `, ${data.results.skipped} skipped (already exist)` : '';
+      const failedText = data.results.failed > 0 ? `, ${data.results.failed} had errors` : '';
       toast({
         title: "Upload Complete",
-        description: `${data.results.successful} products added successfully. ${data.results.failed} failed.`,
+        description: `${data.results.successful} products added${skippedText}${failedText}`,
         variant: data.results.failed > 0 ? "destructive" : "default",
       });
     },
@@ -250,16 +263,39 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
             <div className="border rounded-lg p-4">
               <h3 className="font-medium mb-2">Upload Results</h3>
               
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{uploadResult.successful}</div>
-                  <div className="text-sm text-green-700">Successful</div>
+                  <div className="text-2xl font-bold text-green-600" data-testid="text-successful-count">{uploadResult.successful}</div>
+                  <div className="text-sm text-green-700">Added</div>
+                </div>
+                <div className="text-center p-3 bg-amber-50 rounded-lg">
+                  <div className="text-2xl font-bold text-amber-600" data-testid="text-skipped-count">{uploadResult.skipped || 0}</div>
+                  <div className="text-sm text-amber-700">Skipped</div>
                 </div>
                 <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{uploadResult.failed}</div>
-                  <div className="text-sm text-red-700">Failed</div>
+                  <div className="text-2xl font-bold text-red-600" data-testid="text-failed-count">{uploadResult.failed}</div>
+                  <div className="text-sm text-red-700">Errors</div>
                 </div>
               </div>
+
+              {/* Skipped Products Section */}
+              {uploadResult.skippedRows && uploadResult.skippedRows.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  <h4 className="font-medium text-amber-600">Skipped ({uploadResult.skippedRows.length} - already exist):</h4>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {uploadResult.skippedRows.slice(0, 5).map((item, index) => (
+                      <div key={index} className="text-sm text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                        Row {item.row}: SKU "{item.sku}" - {item.reason}
+                      </div>
+                    ))}
+                    {uploadResult.skippedRows.length > 5 && (
+                      <p className="text-sm text-amber-600 py-1">
+                        And {uploadResult.skippedRows.length - 5} more skipped...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {uploadResult.errors.length > 0 && (
                 <div className="space-y-2">
