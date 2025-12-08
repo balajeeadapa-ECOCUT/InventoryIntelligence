@@ -98,12 +98,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Check if user is pending approval
+      // Helper to sanitize user data (remove sensitive fields like password)
+      const sanitizeUser = (u: typeof user) => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        role: u.role,
+        status: u.status,
+        phone: u.phone,
+        profileImageUrl: u.profileImageUrl,
+        createdAt: u.createdAt,
+      });
+      
+      // Check if user is pending approval - don't expose any user data
       if (user.status === 'pending') {
         return res.status(403).json({ 
           message: "Account pending approval", 
-          status: "pending",
-          user: user 
+          status: "pending"
         });
       }
       
@@ -115,7 +127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      res.json(user);
+      // Return sanitized user data (never include password hash)
+      res.json(sanitizeUser(user));
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });

@@ -100,23 +100,11 @@ export function setupAuthRoutes(app: Express) {
         });
       }
       
-      // Check user status
+      // Check user status - do NOT create session for non-approved users
       if (user.status === "pending") {
-        // Set session to allow viewing pending page
-        req.session.userId = user.id;
-        req.session.email = user.email;
-        req.session.isAuthenticated = false;
-        
         return res.status(403).json({ 
           message: "Your account is pending approval",
-          status: "pending",
-          user: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            status: user.status,
-          }
+          status: "pending"
         });
       }
       
@@ -126,6 +114,8 @@ export function setupAuthRoutes(app: Express) {
           status: "rejected"
         });
       }
+      
+      // Only approved users get past this point
       
       // Set session
       req.session.userId = user.id;
