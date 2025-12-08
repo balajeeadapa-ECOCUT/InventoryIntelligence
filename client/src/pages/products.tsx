@@ -48,6 +48,8 @@ export default function Products() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
@@ -162,6 +164,56 @@ export default function Products() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedProducts.length === 0) return;
+    
+    setIsBulkDeleting(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    try {
+      for (const productId of selectedProducts) {
+        try {
+          const response = await fetch(`/api/products/${productId}`, {
+            method: 'DELETE',
+          });
+          
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch {
+          errorCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast({
+          title: "Products Deleted",
+          description: `Successfully deleted ${successCount} product${successCount !== 1 ? 's' : ''}.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete products",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete products",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkDeleting(false);
+      setBulkDeleteDialogOpen(false);
+      setSelectedProducts([]);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -211,15 +263,26 @@ export default function Products() {
             </div>
             <div className="flex gap-2 flex-wrap">
               {selectedProducts.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => setQrLabelPrinterOpen(true)}
-                  className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
-                  data-testid="batch-print-qr-btn"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print {selectedProducts.length} QR Labels
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                    data-testid="bulk-delete-btn"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected ({selectedProducts.length})
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setQrLabelPrinterOpen(true)}
+                    className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+                    data-testid="batch-print-qr-btn"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print {selectedProducts.length} QR Labels
+                  </Button>
+                </>
               )}
               <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
@@ -577,6 +640,29 @@ export default function Products() {
               data-testid="confirm-delete-btn"
             >
               {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Products</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedProducts.length} selected item{selectedProducts.length !== 1 ? 's' : ''}? This action cannot be undone and will remove the products from your inventory.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="confirm-bulk-delete-btn"
+            >
+              {isBulkDeleting ? "Deleting..." : `Delete ${selectedProducts.length} Item${selectedProducts.length !== 1 ? 's' : ''}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
