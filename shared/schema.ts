@@ -97,6 +97,7 @@ export const products = pgTable("products", {
   minStockLevel: integer("min_stock_level").default(10),
   maxStockLevel: integer("max_stock_level").default(100),
   imageUrl: text("image_url"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -110,22 +111,28 @@ export const insertProductFormSchema = insertProductSchema.extend({
   minStockLevel: z.string().or(z.number()).optional(),
   maxStockLevel: z.string().or(z.number()).optional(),
   categoryId: z.string().or(z.number()).nullable().optional(),
+  binLocation: z.string().nullable().optional(),
 });
 
 export type ProductWithCategory = Product & {
   category?: Category | null;
 };
 
+// Stock movement type enum
+export const movementTypeEnum = ["IN", "OUT", "ADJUSTMENT"] as const;
+export type MovementType = typeof movementTypeEnum[number];
+
 // Stock movements table
 export const stockMovements = pgTable("stock_movements", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id).notNull(),
   userId: varchar("user_id", { length: 255 }).references(() => users.id).notNull(),
-  movementType: varchar("movement_type", { length: 50 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
   quantity: integer("quantity").notNull(),
   previousStock: integer("previous_stock").notNull(),
   newStock: integer("new_stock").notNull(),
-  reason: text("reason"),
+  reason: varchar("reason", { length: 255 }),
+  notes: text("notes"),
   invoiceNumber: varchar("invoice_number", { length: 100 }),
   invoiceDate: timestamp("invoice_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

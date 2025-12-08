@@ -468,13 +468,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: validatedData.description,
         sku: validatedData.sku,
         barcode: validatedData.barcode,
+        binLocation: validatedData.binLocation,
         categoryId: validatedData.categoryId,
         unitPrice: validatedData.unitPrice.toString(), // Convert number to string for Drizzle decimal type
         currentStock: validatedData.currentStock,
         minStockLevel: validatedData.minStockLevel,
         maxStockLevel: validatedData.maxStockLevel,
         imageUrl: validatedData.imageUrl,
-        isActive: validatedData.isActive,
       };
       
       const product = await storage.createProduct(productData);
