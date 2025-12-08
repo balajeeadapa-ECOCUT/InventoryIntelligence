@@ -14,14 +14,25 @@ interface BulkUploadProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface UploadError {
+  row: number;
+  field?: string;
+  errorType: string;
+  message: string;
+  value?: any;
+}
+
 interface UploadResult {
   successful: number;
   failed: number;
-  errors: Array<{
-    row: number;
-    data: any;
-    error: string;
-  }>;
+  errors: UploadError[];
+}
+
+interface ErrorResponse {
+  message?: string;
+  error?: string;
+  errorType?: string;
+  details?: string;
 }
 
 export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
@@ -62,6 +73,8 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
     },
   });
 
+  const [uploadError, setUploadError] = useState<ErrorResponse | null>(null);
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -73,14 +86,19 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Upload failed");
+        const errorData: ErrorResponse = await response.json();
+        const errorMessage = errorData.message || errorData.error || "Upload failed";
+        const error = new Error(errorMessage) as Error & { details?: string; errorType?: string };
+        error.details = errorData.details;
+        error.errorType = errorData.errorType;
+        throw error;
       }
 
       return response.json();
     },
     onSuccess: (data) => {
       setUploadResult(data.results);
+      setUploadError(null);
       
       // Invalidate products query to refresh the list
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -92,10 +110,15 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
         variant: data.results.failed > 0 ? "destructive" : "default",
       });
     },
-    onError: (error) => {
+    onError: (error: Error & { details?: string; errorType?: string }) => {
+      setUploadError({
+        message: error.message,
+        details: error.details,
+        errorType: error.errorType
+      });
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload file",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -108,6 +131,7 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
           file.type === "application/vnd.ms-excel") {
         setSelectedFile(file);
         setUploadResult(null);
+        setUploadError(null);
       } else {
         toast({
           title: "Invalid File Type",
@@ -127,6 +151,7 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
   const handleClose = () => {
     setSelectedFile(null);
     setUploadResult(null);
+    setUploadError(null);
     onOpenChange(false);
   };
 
@@ -190,6 +215,7 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
                 onClick={handleUpload}
                 disabled={!selectedFile || uploadMutation.isPending}
                 className="w-full"
+                data-testid="button-upload-products"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 {uploadMutation.isPending ? "Uploading..." : "Upload Products"}
@@ -200,6 +226,21 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
                   <Progress value={50} className="w-full" />
                   <p className="text-sm text-gray-600 text-center">Processing your file...</p>
                 </div>
+              )}
+
+              {uploadError && (
+                <Alert variant="destructive" data-testid="upload-error-alert">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="space-y-1">
+                    <div className="font-medium">{uploadError.message}</div>
+                    {uploadError.details && (
+                      <div className="text-sm opacity-90">{uploadError.details}</div>
+                    )}
+                    {uploadError.errorType && (
+                      <div className="text-xs opacity-75">Error code: {uploadError.errorType}</div>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           </div>
@@ -222,19 +263,27 @@ export function BulkUpload({ open, onOpenChange }: BulkUploadProps) {
 
               {uploadResult.errors.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-medium text-red-600">Errors:</h4>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {uploadResult.errors.slice(0, 5).map((error, index) => (
-                      <Alert key={index} variant="destructive">
+                  <h4 className="font-medium text-red-600">Errors ({uploadResult.errors.length} total):</h4>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {uploadResult.errors.slice(0, 10).map((error, index) => (
+                      <Alert key={index} variant="destructive" className="py-2" data-testid={`error-row-${error.row}`}>
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Row {error.row}: {error.error}
+                        <AlertDescription className="text-sm">
+                          <div className="font-medium">
+                            Row {error.row}{error.field ? ` - ${error.field}` : ''}
+                          </div>
+                          <div className="opacity-90">{error.message}</div>
+                          {error.errorType && (
+                            <div className="text-xs opacity-75 mt-1">
+                              Type: {error.errorType}
+                            </div>
+                          )}
                         </AlertDescription>
                       </Alert>
                     ))}
-                    {uploadResult.errors.length > 5 && (
-                      <p className="text-sm text-gray-600">
-                        And {uploadResult.errors.length - 5} more errors...
+                    {uploadResult.errors.length > 10 && (
+                      <p className="text-sm text-gray-600 py-2">
+                        And {uploadResult.errors.length - 10} more errors...
                       </p>
                     )}
                   </div>
