@@ -42,22 +42,21 @@ function Router() {
     );
   }
 
+  // Show landing page for unauthenticated users on ANY route
+  if (isLoading || !isAuthenticated) {
+    return <Landing />;
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/products" component={Products} />
-          <Route path="/inventory-view" component={InventoryView} />
-          <Route path="/categories" component={Categories} />
-          <Route path="/ai-insights" component={AIInsights} />
-          <Route path="/employees" component={Employees} />
-          <Route path="/reports" component={Reports} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
+      <Route path="/" component={Dashboard} />
+      <Route path="/products" component={Products} />
+      <Route path="/inventory-view" component={InventoryView} />
+      <Route path="/categories" component={Categories} />
+      <Route path="/ai-insights" component={AIInsights} />
+      <Route path="/employees" component={Employees} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
