@@ -266,15 +266,17 @@ export default function Products() {
             <div className="flex gap-2 flex-wrap">
               {selectedProducts.length > 0 && (
                 <>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setBulkDeleteDialogOpen(true)}
-                    className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                    data-testid="bulk-delete-btn"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Selected ({selectedProducts.length})
-                  </Button>
+                  <Can permission="canDeleteData">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setBulkDeleteDialogOpen(true)}
+                      className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                      data-testid="bulk-delete-btn"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedProducts.length})
+                    </Button>
+                  </Can>
                   <Button 
                     variant="outline" 
                     onClick={() => setQrLabelPrinterOpen(true)}
@@ -286,18 +288,20 @@ export default function Products() {
                   </Button>
                 </>
               )}
-              <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload
-              </Button>
-              <Button variant="outline" onClick={() => setBulkStockUploadOpen(true)}>
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Stock Movements
-              </Button>
-              <Button onClick={() => setProductFormOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
+              <Can permission="canManageProducts">
+                <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Upload
+                </Button>
+                <Button variant="outline" onClick={() => setBulkStockUploadOpen(true)}>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Stock Movements
+                </Button>
+                <Button onClick={() => setProductFormOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+              </Can>
             </div>
           </div>
 
@@ -419,9 +423,9 @@ export default function Products() {
                         <TableHead>Supplier</TableHead>
                         <TableHead>Stock</TableHead>
                         <Can permission="canViewPrices">
-<TableHead>Price</TableHead>
-                          </Can>
-                        <TableHead>Total Value</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Total Value</TableHead>
+                        </Can>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -508,13 +512,13 @@ export default function Products() {
                             </div>
                           </TableCell>
                           <Can permission="canViewPrices">
-<TableCell className="font-medium">
-                            ₹{parseFloat(product.unitPrice.toString()).toFixed(2)}
-                          </TableCell>
-                            </Can>
-                          <TableCell className="font-medium text-purple-700">
-                            ₹{(parseFloat(product.unitPrice.toString()) * product.currentStock).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
+                            <TableCell className="font-medium">
+                              ₹{parseFloat(product.unitPrice.toString()).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="font-medium text-purple-700">
+                              ₹{(parseFloat(product.unitPrice.toString()) * product.currentStock).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </Can>
                           <TableCell>
                             <Badge variant={
                               product.currentStock <= 0
@@ -534,41 +538,45 @@ export default function Products() {
                           <TableCell className="text-right">
                             <div className="flex items-center gap-1 justify-end">
                               <PrintQRButton product={product} size="icon" variant="ghost" />
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
-                                  setSelectedProduct(product);
-                                  setStockAdjustmentOpen(true);
-                                }}
-                                title="Stock In/Out"
-                              >
-                                <TrendingUp className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
-                                  setSelectedProduct(product);
-                                  setEditProductFormOpen(true);
-                                }}
-                                title="Edit Product"
-                                data-testid={`button-edit-product-${product.id}`}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
-                                  setProductToDelete(product);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                title="Delete Product"
-                                data-testid={`button-delete-product-${product.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
+                              <Can permission="canManageInventory">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setStockAdjustmentOpen(true);
+                                  }}
+                                  title="Stock In/Out"
+                                >
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </Can>
+                              <Can permission="canManageProducts">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setEditProductFormOpen(true);
+                                  }}
+                                  title="Edit Product"
+                                  data-testid={`button-edit-product-${product.id}`}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => {
+                                    setProductToDelete(product);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                  title="Delete Product"
+                                  data-testid={`button-delete-product-${product.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </Can>
                             </div>
                           </TableCell>
                         </TableRow>
