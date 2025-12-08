@@ -55,12 +55,18 @@ export const ROLE_PERMISSIONS = {
   },
 } as const;
 
+// User status enum
+export const USER_STATUS = ["pending", "approved", "rejected"] as const;
+export type UserStatus = typeof USER_STATUS[number];
+
 // Users table
 export const users = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  email: varchar("email", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }),
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
   profileImageUrl: text("profile_image_url"),
   role: varchar("role", { length: 50 }).default("sales_team").notNull(),
   status: varchar("status", { length: 50 }).default("pending").notNull(),
@@ -70,6 +76,25 @@ export const users = pgTable("users", {
 
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
+
+// Signup schema for validation
+export const signupSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  phone: z.string().optional(),
+});
+
+export type SignupData = z.infer<typeof signupSchema>;
+
+// Login schema for validation
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type LoginData = z.infer<typeof loginSchema>;
 
 // Categories table
 export const categories = pgTable("categories", {
