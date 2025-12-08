@@ -135,23 +135,39 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
+  if (now > user.expires_at) {
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+    } catch (error) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
   }
 
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
+  // Fetch user role from database and attach to req.user
   try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
+    const userId = user.claims?.sub;
+    if (userId) {
+      const dbUser = await storage.getUser(userId);
+      if (dbUser) {
+        user.id = dbUser.id;
+        user.email = dbUser.email;
+        user.role = dbUser.role || "sales_team";
+        user.firstName = dbUser.firstName;
+        user.lastName = dbUser.lastName;
+      }
+    }
   } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.error("Error fetching user role:", error);
   }
+
+  return next();
 };
