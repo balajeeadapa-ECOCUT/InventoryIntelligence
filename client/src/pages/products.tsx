@@ -416,6 +416,7 @@ export default function Products() {
                         <TableHead>SKU</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Bin Location</TableHead>
+                        <TableHead>Supplier</TableHead>
                         <TableHead>Stock</TableHead>
                         <Can permission="canViewPrices">
 <TableHead>Price</TableHead>
@@ -482,6 +483,11 @@ export default function Products() {
                           </TableCell>
                           <TableCell className="font-mono text-sm">
                             {product.binLocation || (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {product.supplierName || (
                               <span className="text-gray-400">—</span>
                             )}
                           </TableCell>
