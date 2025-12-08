@@ -129,8 +129,36 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  const session = req.session as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  // Check for email/password authentication first
+  if (session?.userId && session?.isAuthenticated) {
+    try {
+      const dbUser = await storage.getUser(session.userId);
+      if (dbUser) {
+        // Check if user is approved
+        if (dbUser.status !== 'approved') {
+          return res.status(403).json({ message: "Account pending approval" });
+        }
+        // Attach user info to req.user for consistency with OIDC auth
+        (req as any).user = {
+          claims: { sub: dbUser.id },
+          id: dbUser.id,
+          email: dbUser.email,
+          role: dbUser.role || "sales_team",
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+        };
+        return next();
+      }
+    } catch (error) {
+      console.error("Error fetching user for email/password auth:", error);
+    }
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Fall back to Replit OIDC authentication
+  if (!req.isAuthenticated() || !user?.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -152,12 +180,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     }
   }
 
-  // Fetch user role from database and attach to req.user
+  // Fetch user role from database and check approval status
   try {
     const userId = user.claims?.sub;
     if (userId) {
       const dbUser = await storage.getUser(userId);
       if (dbUser) {
+        // Check if user is approved
+        if (dbUser.status !== 'approved') {
+          return res.status(403).json({ message: "Account pending approval" });
+        }
         user.id = dbUser.id;
         user.email = dbUser.email;
         user.role = dbUser.role || "sales_team";
