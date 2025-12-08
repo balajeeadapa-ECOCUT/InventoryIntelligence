@@ -31,10 +31,13 @@ EcoCut Smart Inventory is a full-stack inventory management system built with Re
 ## Key Components
 
 ### Authentication System
-- **Provider**: Replit OIDC integration
+- **Dual Authentication**: Supports both Replit OIDC and email/password login
+- **Email/Password Auth**: Bcrypt password hashing with secure registration flow
+- **Admin Approval Workflow**: New users require admin approval (pending → approved/rejected)
 - **Session Storage**: PostgreSQL-backed sessions with connect-pg-simple
 - **Role-based Access**: Admin, manager, and employee roles
-- **Security**: HTTP-only cookies with secure flags
+- **Security**: HTTP-only cookies with secure flags, password hashes never exposed to clients
+- **Auth Routes**: /api/auth/signup, /api/auth/login, /api/auth/logout, /api/auth/user
 
 ### Inventory Management
 - **Products**: Complete CRUD operations with categorization
