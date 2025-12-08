@@ -221,33 +221,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk upload products from Excel file
   app.post('/api/products/bulk-upload', isAuthenticated, requirePermission("canManageProducts"), uploadExcel.single('file'), async (req: any, res) => {
     try {
+      // File validation
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({ 
+          message: "No file uploaded",
+          errorType: "FILE_MISSING",
+          details: "Please select an Excel file (.xlsx or .xls) to upload"
+        });
       }
 
-      // Parse Excel file
-      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      // Validate file type
+      const allowedMimeTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          message: "Invalid file format",
+          errorType: "INVALID_FILE_FORMAT",
+          details: `Expected Excel file (.xlsx or .xls), but received: ${req.file.mimetype}. Please upload a valid Excel file.`
+        });
+      }
+
+      // Parse Excel file with error handling
+      let workbook;
+      try {
+        workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      } catch (parseError) {
+        return res.status(400).json({
+          message: "Failed to parse Excel file",
+          errorType: "FILE_PARSE_ERROR",
+          details: "The uploaded file could not be read. It may be corrupted or not a valid Excel file. Please check the file and try again."
+        });
+      }
+
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        return res.status(400).json({
+          message: "Excel file has no worksheets",
+          errorType: "EMPTY_WORKBOOK",
+          details: "The uploaded Excel file contains no worksheets. Please ensure your file has at least one sheet with data."
+        });
+      }
+
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
       if (!data.length) {
-        return res.status(400).json({ message: "Excel file is empty" });
+        return res.status(400).json({ 
+          message: "Excel file is empty",
+          errorType: "EMPTY_FILE",
+          details: "The uploaded Excel file contains no data rows. Please add product data after the header row."
+        });
       }
 
       const results = {
         successful: 0,
         failed: 0,
-        errors: [] as any[]
+        errors: [] as {
+          row: number;
+          field?: string;
+          errorType: string;
+          message: string;
+          value?: any;
+        }[]
       };
 
       // Get all categories for reference
       const categories = await storage.getCategories();
       const categoryMap = new Map(categories.map(cat => [cat.name.toLowerCase(), cat.id]));
 
+      // Get ALL existing products to check for duplicates (use high limit to avoid pagination issues)
+      const existingProducts = await storage.getProducts({ limit: 100000 });
+      const existingSkus = new Set(existingProducts.products.map(p => p.sku?.toLowerCase()).filter(Boolean));
+      const existingBarcodes = new Set(existingProducts.products.map(p => p.barcode?.toLowerCase()).filter(Boolean));
+
+      // Track SKUs and barcodes within the current upload batch
+      const batchSkus = new Set<string>();
+      const batchBarcodes = new Set<string>();
+
       // Process each row
       for (let i = 0; i < data.length; i++) {
         const row = data[i] as any;
+        const rowNumber = i + 2; // Excel row number (accounting for header)
         
         // Skip the data types row (contains "TEXT" or "NUMBER" indicators)
         const firstValue = String(row["Product Name"] || row["name"] || "");
@@ -255,26 +311,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         
+        const rowErrors: typeof results.errors = [];
+        
+        // Validate required fields
+        const productName = row["Product Name"] || row["name"];
+        if (!productName || String(productName).trim() === "") {
+          rowErrors.push({
+            row: rowNumber,
+            field: "Product Name",
+            errorType: "MISSING_REQUIRED_FIELD",
+            message: "Product Name is required and cannot be empty",
+            value: productName
+          });
+        }
+
+        // Map Excel columns to our schema
+        const rawSku = row["SKU"] || row["sku"];
+        const rawBarcode = row["Barcode"] || row["barcode"];
+        const rawBinLocation = row["Bin Location"] || row["binLocation"];
+        const rawSupplierName = row["Supplier Name"] || row["supplierName"];
+        const rawUnitPrice = row["Unit Price"] || row["unitPrice"];
+        const rawCurrentStock = row["Current Stock"] || row["currentStock"];
+        const rawMinStockLevel = row["Min Stock Level"] || row["minStockLevel"];
+        const rawMaxStockLevel = row["Max Stock Level"] || row["maxStockLevel"];
+
+        // Validate SKU uniqueness
+        const skuValue = rawSku !== undefined && rawSku !== null ? String(rawSku).trim() : "";
+        if (skuValue) {
+          const skuLower = skuValue.toLowerCase();
+          if (existingSkus.has(skuLower)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "SKU",
+              errorType: "DUPLICATE_SKU",
+              message: `SKU '${skuValue}' already exists in the database. Each product must have a unique SKU.`,
+              value: skuValue
+            });
+          } else if (batchSkus.has(skuLower)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "SKU",
+              errorType: "DUPLICATE_SKU_IN_BATCH",
+              message: `SKU '${skuValue}' is duplicated within this upload file. Each row must have a unique SKU.`,
+              value: skuValue
+            });
+          }
+          batchSkus.add(skuLower);
+        }
+
+        // Validate Barcode uniqueness
+        const barcodeValue = rawBarcode !== undefined && rawBarcode !== null ? String(rawBarcode).trim() : "";
+        if (barcodeValue) {
+          const barcodeLower = barcodeValue.toLowerCase();
+          if (existingBarcodes.has(barcodeLower)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Barcode",
+              errorType: "DUPLICATE_BARCODE",
+              message: `Barcode '${barcodeValue}' already exists in the database. Each product must have a unique barcode.`,
+              value: barcodeValue
+            });
+          } else if (batchBarcodes.has(barcodeLower)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Barcode",
+              errorType: "DUPLICATE_BARCODE_IN_BATCH",
+              message: `Barcode '${barcodeValue}' is duplicated within this upload file. Each row must have a unique barcode.`,
+              value: barcodeValue
+            });
+          }
+          batchBarcodes.add(barcodeLower);
+        }
+
+        // Validate numeric fields
+        if (rawUnitPrice !== undefined && rawUnitPrice !== null && rawUnitPrice !== "") {
+          const parsedPrice = Number(rawUnitPrice);
+          if (isNaN(parsedPrice)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Unit Price",
+              errorType: "INVALID_DATA_TYPE",
+              message: `Unit Price must be a valid number, but received: '${rawUnitPrice}'`,
+              value: rawUnitPrice
+            });
+          } else if (parsedPrice < 0) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Unit Price",
+              errorType: "INVALID_VALUE",
+              message: `Unit Price cannot be negative, but received: ${parsedPrice}`,
+              value: rawUnitPrice
+            });
+          }
+        }
+
+        if (rawCurrentStock !== undefined && rawCurrentStock !== null && rawCurrentStock !== "") {
+          const parsedStock = Number(rawCurrentStock);
+          if (isNaN(parsedStock)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Current Stock",
+              errorType: "INVALID_DATA_TYPE",
+              message: `Current Stock must be a valid number, but received: '${rawCurrentStock}'`,
+              value: rawCurrentStock
+            });
+          } else if (!Number.isInteger(parsedStock)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Current Stock",
+              errorType: "INVALID_DATA_TYPE",
+              message: `Current Stock must be a whole number, but received: ${rawCurrentStock}`,
+              value: rawCurrentStock
+            });
+          } else if (parsedStock < 0) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Current Stock",
+              errorType: "INVALID_VALUE",
+              message: `Current Stock cannot be negative, but received: ${parsedStock}`,
+              value: rawCurrentStock
+            });
+          }
+        }
+
+        if (rawMinStockLevel !== undefined && rawMinStockLevel !== null && rawMinStockLevel !== "") {
+          const parsedMin = Number(rawMinStockLevel);
+          if (isNaN(parsedMin)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Min Stock Level",
+              errorType: "INVALID_DATA_TYPE",
+              message: `Min Stock Level must be a valid number, but received: '${rawMinStockLevel}'`,
+              value: rawMinStockLevel
+            });
+          } else if (parsedMin < 0) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Min Stock Level",
+              errorType: "INVALID_VALUE",
+              message: `Min Stock Level cannot be negative, but received: ${parsedMin}`,
+              value: rawMinStockLevel
+            });
+          }
+        }
+
+        if (rawMaxStockLevel !== undefined && rawMaxStockLevel !== null && rawMaxStockLevel !== "") {
+          const parsedMax = Number(rawMaxStockLevel);
+          if (isNaN(parsedMax)) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Max Stock Level",
+              errorType: "INVALID_DATA_TYPE",
+              message: `Max Stock Level must be a valid number, but received: '${rawMaxStockLevel}'`,
+              value: rawMaxStockLevel
+            });
+          } else if (parsedMax < 0) {
+            rowErrors.push({
+              row: rowNumber,
+              field: "Max Stock Level",
+              errorType: "INVALID_VALUE",
+              message: `Max Stock Level cannot be negative, but received: ${parsedMax}`,
+              value: rawMaxStockLevel
+            });
+          }
+        }
+
+        // Validate min/max stock level relationship
+        const parsedMinStock = Number(rawMinStockLevel) || 10;
+        const parsedMaxStock = Number(rawMaxStockLevel) || 1000;
+        if (!isNaN(parsedMinStock) && !isNaN(parsedMaxStock) && parsedMinStock > parsedMaxStock) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "Stock Levels",
+            errorType: "INVALID_VALUE",
+            message: `Min Stock Level (${parsedMinStock}) cannot be greater than Max Stock Level (${parsedMaxStock})`,
+            value: { minStockLevel: rawMinStockLevel, maxStockLevel: rawMaxStockLevel }
+          });
+        }
+
+        // If there are validation errors, add them and skip this row
+        if (rowErrors.length > 0) {
+          results.failed++;
+          results.errors.push(...rowErrors);
+          continue;
+        }
+        
         try {
-          // Map Excel columns to our schema - ensure SKU and Barcode are treated as TEXT
-          const rawSku = row["SKU"] || row["sku"];
-          const rawBarcode = row["Barcode"] || row["barcode"];
-          
-          const rawBinLocation = row["Bin Location"] || row["binLocation"];
-          const rawSupplierName = row["Supplier Name"] || row["supplierName"];
-          
           const productData = {
-            name: row["Product Name"] || row["name"],
+            name: productName,
             description: row["Description"] || row["description"] || "",
-            sku: rawSku !== undefined && rawSku !== null ? String(rawSku) : "",
-            barcode: rawBarcode !== undefined && rawBarcode !== null ? String(rawBarcode) : "",
+            sku: skuValue,
+            barcode: barcodeValue,
             binLocation: rawBinLocation !== undefined && rawBinLocation !== null ? String(rawBinLocation) : "",
             supplierName: rawSupplierName !== undefined && rawSupplierName !== null ? String(rawSupplierName) : "",
             categoryId: null as number | null,
-            unitPrice: Number(row["Unit Price"] || row["unitPrice"] || 0),
-            currentStock: Number(row["Current Stock"] || row["currentStock"] || 0),
-            minStockLevel: Number(row["Min Stock Level"] || row["minStockLevel"] || 10),
-            maxStockLevel: Number(row["Max Stock Level"] || row["maxStockLevel"] || 1000),
+            unitPrice: Number(rawUnitPrice || 0),
+            currentStock: Number(rawCurrentStock || 0),
+            minStockLevel: Number(rawMinStockLevel || 10),
+            maxStockLevel: Number(rawMaxStockLevel || 1000),
             imageUrl: row["Image URL"] || row["imageUrl"] || "",
             isActive: true
           };
@@ -282,13 +516,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Find category ID by name
           const categoryName = row["Category"] || row["category"];
           if (categoryName) {
-            const categoryId = categoryMap.get(categoryName.toLowerCase());
+            const categoryId = categoryMap.get(String(categoryName).toLowerCase());
             if (categoryId) {
               productData.categoryId = categoryId;
+            } else {
+              rowErrors.push({
+                row: rowNumber,
+                field: "Category",
+                errorType: "CATEGORY_NOT_FOUND",
+                message: `Category '${categoryName}' was not found. Available categories: ${categories.map(c => c.name).join(', ')}`,
+                value: categoryName
+              });
             }
           }
 
-          // Validate the product data
+          if (rowErrors.length > 0) {
+            results.failed++;
+            results.errors.push(...rowErrors);
+            continue;
+          }
+
+          // Validate the product data with schema
           const validatedData = insertProductFormSchema.parse(productData);
 
           // Convert unitPrice to string for database storage
@@ -301,13 +549,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createProduct(dbProductData as any);
           results.successful++;
 
+          // Add to existing sets to prevent duplicates within same upload
+          if (skuValue) existingSkus.add(skuValue.toLowerCase());
+          if (barcodeValue) existingBarcodes.add(barcodeValue.toLowerCase());
+
         } catch (error) {
           results.failed++;
-          results.errors.push({
-            row: i + 2, // Excel row number (accounting for header)
-            data: row,
-            error: error instanceof Error ? error.message : "Unknown error"
-          });
+          
+          // Parse Zod validation errors for more specific messages
+          if (error instanceof z.ZodError) {
+            for (const issue of error.issues) {
+              results.errors.push({
+                row: rowNumber,
+                field: issue.path.join('.') || "Unknown field",
+                errorType: "VALIDATION_ERROR",
+                message: issue.message,
+                value: issue.path.length > 0 ? row[issue.path[0] as string] : undefined
+              });
+            }
+          } else {
+            results.errors.push({
+              row: rowNumber,
+              field: undefined,
+              errorType: "PROCESSING_ERROR",
+              message: error instanceof Error ? error.message : "An unexpected error occurred while processing this row",
+              value: undefined
+            });
+          }
         }
       }
 
@@ -319,12 +587,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         message: `Bulk upload completed. ${results.successful} products added, ${results.failed} failed.`,
-        results
+        results,
+        summary: {
+          totalRows: data.length,
+          processed: results.successful + results.failed,
+          successful: results.successful,
+          failed: results.failed,
+          errorsByType: results.errors.reduce((acc, err) => {
+            acc[err.errorType] = (acc[err.errorType] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        }
       });
 
     } catch (error) {
       console.error("Error processing bulk upload:", error);
-      res.status(500).json({ message: "Failed to process bulk upload" });
+      res.status(500).json({ 
+        message: "Failed to process bulk upload",
+        errorType: "SERVER_ERROR",
+        details: error instanceof Error ? error.message : "An unexpected error occurred on the server. Please try again or contact support if the issue persists."
+      });
     }
   });
 
