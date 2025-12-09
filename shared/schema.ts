@@ -118,6 +118,7 @@ export const products = pgTable("products", {
   binLocation: varchar("bin_location", { length: 100 }),
   supplierName: varchar("supplier_name", { length: 255 }),
   categoryId: integer("category_id").references(() => categories.id),
+  company: varchar("company", { length: 50 }).notNull().default("EcoCut"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   currentStock: integer("current_stock").default(0).notNull(),
   minStockLevel: integer("min_stock_level").default(10),
@@ -131,6 +132,10 @@ export const products = pgTable("products", {
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = typeof products.$inferInsert;
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
+// Valid company names
+export const COMPANY_NAMES = ["EcoCut", "AGIS", "EcoFast"] as const;
+export type CompanyName = typeof COMPANY_NAMES[number];
+
 export const insertProductFormSchema = insertProductSchema.extend({
   unitPrice: z.string().or(z.number()),
   currentStock: z.string().or(z.number()).optional(),
@@ -139,6 +144,7 @@ export const insertProductFormSchema = insertProductSchema.extend({
   categoryId: z.string().or(z.number()).nullable().optional(),
   binLocation: z.string().nullable().optional(),
   supplierName: z.string().nullable().optional(),
+  company: z.enum(COMPANY_NAMES).optional().default("EcoCut"),
 });
 
 export type ProductWithCategory = Product & {

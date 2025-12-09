@@ -15,6 +15,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Plus } from "lucide-react";
 
+const COMPANY_OPTIONS = ["EcoCut", "AGIS", "EcoFast"] as const;
+
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional(),
@@ -23,6 +25,7 @@ const productSchema = z.object({
   binLocation: z.string().optional(),
   supplierName: z.string().optional(),
   categoryId: z.number().optional(),
+  company: z.enum(COMPANY_OPTIONS).default("EcoCut"),
   unitPrice: z.string().min(1, "Unit price is required"),
   currentStock: z.number().min(0, "Stock cannot be negative"),
   minStockLevel: z.number().min(0, "Minimum stock level cannot be negative"),
@@ -86,6 +89,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       binLocation: "",
       supplierName: "",
       categoryId: undefined,
+      company: "EcoCut",
       unitPrice: "",
       currentStock: 0,
       minStockLevel: 10,
@@ -105,6 +109,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         binLocation: product.binLocation || "",
         supplierName: product.supplierName || "",
         categoryId: product.categoryId || undefined,
+        company: product.company || "EcoCut",
         unitPrice: product.unitPrice?.toString() || "",
         currentStock: product.currentStock || 0,
         minStockLevel: product.minStockLevel || 10,
@@ -120,6 +125,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         binLocation: "",
         supplierName: "",
         categoryId: undefined,
+        company: "EcoCut",
         unitPrice: "",
         currentStock: 0,
         minStockLevel: 10,
@@ -360,6 +366,34 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                         </Button>
                       </div>
                     )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <Select 
+                      value={field.value} 
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-company">
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {COMPANY_OPTIONS.map((company) => (
+                          <SelectItem key={company} value={company}>
+                            {company}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
