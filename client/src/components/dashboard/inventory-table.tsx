@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Edit, Settings, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { usePermissions } from "@/lib/permissions";
 
 export function InventoryTable() {
+  const { data: permissions } = usePermissions();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -109,7 +111,7 @@ export function InventoryTable() {
               <TableHead>SKU</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Stock Level</TableHead>
-              <TableHead>Unit Price</TableHead>
+              {permissions?.canViewPrices && <TableHead>Unit Price</TableHead>}
               <TableHead>Last Updated</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -150,7 +152,9 @@ export function InventoryTable() {
                       <span className="text-sm text-gray-600">{product.currentStock} units</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium">₹{parseFloat(product.unitPrice).toFixed(2)}</TableCell>
+                  {permissions?.canViewPrices && (
+                    <TableCell className="font-medium">₹{parseFloat(product.unitPrice).toFixed(2)}</TableCell>
+                  )}
                   <TableCell className="text-sm text-gray-600">
                     {formatDistanceToNow(new Date(product.updatedAt), { addSuffix: true })}
                   </TableCell>
