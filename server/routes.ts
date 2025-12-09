@@ -1398,8 +1398,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Message is required" });
       }
 
+      // Get user permissions to check if they can view prices
+      const userRole = req.user.role || "sales_team";
+      const permissions = getUserPermissions(userRole);
+      const canViewPrices = permissions.canViewPrices;
+
       const chatSessionId = sessionId || `session_${userId}_${Date.now()}`;
-      const response = await aiOrchestrator.chat(chatSessionId, message, userId);
+      const response = await aiOrchestrator.chat(chatSessionId, message, userId, canViewPrices);
       
       res.json({
         sessionId: chatSessionId,

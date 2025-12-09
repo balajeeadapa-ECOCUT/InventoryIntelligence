@@ -183,7 +183,7 @@ Analyze the query intent and provide a helpful response. Return JSON:
   }
 
   // Chat conversation management
-  async chat(sessionId: string, message: string, userId: string): Promise<ChatMessage> {
+  async chat(sessionId: string, message: string, userId: string, canViewPrices: boolean = true): Promise<ChatMessage> {
     if (!this.conversationHistory.has(sessionId)) {
       this.conversationHistory.set(sessionId, []);
     }
@@ -203,20 +203,32 @@ Analyze the query intent and provide a helpful response. Return JSON:
     const products = await storage.getProducts();
     const lowStockProducts = products.products.filter(p => p.currentStock <= (p.minStockLevel || 10));
 
-    const systemContext = `You are StockFlow AI Assistant, an intelligent inventory management helper. You have access to real-time inventory data.
-
-Current Inventory Status:
+    // Build inventory status based on permissions
+    let inventoryStatus = `Current Inventory Status:
 - Total Products: ${stats.totalProducts}
 - Low Stock Alerts: ${stats.lowStockItems}
-- Out of Stock: ${stats.outOfStockItems}
-- Total Value: ₹${stats.totalValue}
+- Out of Stock: ${stats.outOfStockItems}`;
+
+    // Only include value information if user can view prices
+    if (canViewPrices) {
+      inventoryStatus += `\n- Total Value: ₹${stats.totalValue}`;
+    }
+
+    // Price restriction instructions for AI
+    const priceRestriction = canViewPrices 
+      ? "Use Indian Rupee (₹) for currency when discussing prices."
+      : "IMPORTANT: This user does not have permission to view prices. NEVER mention unit prices, total values, costs, or any monetary amounts. If the user asks about prices, politely explain that price information is restricted and they should contact their manager for pricing details.";
+
+    const systemContext = `You are StockFlow AI Assistant, an intelligent inventory management helper. You have access to real-time inventory data.
+
+${inventoryStatus}
 
 ${lowStockProducts.length > 0 ? `Low Stock Products: ${lowStockProducts.slice(0, 5).map(p => p.name).join(", ")}` : "All products are adequately stocked."}
 
 Previous conversation:
 ${history.slice(-6).map(m => `${m.role}: ${m.content}`).join("\n")}
 
-Respond helpfully and concisely. Use Indian Rupee (₹) for currency. Be proactive in suggesting actions when relevant.`;
+${priceRestriction} Respond helpfully and concisely. Be proactive in suggesting actions when relevant.`;
 
     const { text, provider } = await this.generateWithProvider(
       `${systemContext}\n\nUser: ${message}\n\nAssistant:`,
