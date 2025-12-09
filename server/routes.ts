@@ -292,11 +292,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Row 3: Sample data
       const templateData = [
         // Headers row
-        ["Product Name", "Description", "SKU", "Barcode", "Bin Location", "Supplier Name", "Category", "Unit Price", "Current Stock", "Min Stock Level", "Max Stock Level", "Image URL"],
+        ["Product Name", "Description", "SKU", "Barcode", "Bin Location", "Supplier Name", "Category", "Company", "Unit Price", "Current Stock", "Min Stock Level", "Max Stock Level", "Image URL"],
         // Data types row - clearly indicates expected format
-        ["TEXT (Required)", "TEXT (Optional)", "TEXT (Required)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (Optional)", "NUMBER (Required)", "NUMBER (Optional)", "NUMBER (Optional)", "NUMBER (Optional)", "TEXT (Optional)"],
+        ["TEXT (Required)", "TEXT (Optional)", "TEXT (Required)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (Optional)", "TEXT (EcoCut/AGIS/EcoFast)", "NUMBER (Required)", "NUMBER (Optional)", "NUMBER (Optional)", "NUMBER (Optional)", "TEXT (Optional)"],
         // Sample data row
-        ["Example Product", "Product description here", "SKU-001", "1234567890123", "A1-B2-C3", "ABC Suppliers", "Electronics", 999.99, 50, 10, 100, "https://example.com/image.jpg"]
+        ["Example Product", "Product description here", "SKU-001", "1234567890123", "A1-B2-C3", "ABC Suppliers", "Electronics", "EcoCut", 999.99, 50, 10, 100, "https://example.com/image.jpg"]
       ];
       
       // Create worksheet from array of arrays
@@ -311,6 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { wch: 15 },  // Bin Location
         { wch: 20 },  // Supplier Name
         { wch: 15 },  // Category
+        { wch: 25 },  // Company (EcoCut/AGIS/EcoFast)
         { wch: 18 },  // Unit Price
         { wch: 18 },  // Current Stock
         { wch: 18 },  // Min Stock Level
@@ -618,6 +619,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         try {
+          // Validate and parse company field (must be EcoCut, AGIS, or EcoFast)
+          const rawCompany = row["Company"] || row["company"] || "EcoCut";
+          const companyValue = String(rawCompany).trim();
+          const validCompanies = ["EcoCut", "AGIS", "EcoFast"];
+          const company = validCompanies.includes(companyValue) ? companyValue : "EcoCut";
+
           const productData = {
             name: productName,
             description: row["Description"] || row["description"] || "",
@@ -626,6 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             binLocation: rawBinLocation !== undefined && rawBinLocation !== null ? String(rawBinLocation) : "",
             supplierName: rawSupplierName !== undefined && rawSupplierName !== null ? String(rawSupplierName) : "",
             categoryId: null as number | null,
+            company: company,
             unitPrice: Number(rawUnitPrice || 0),
             currentStock: Number(rawCurrentStock || 0),
             minStockLevel: Number(rawMinStockLevel || 10),
