@@ -1749,6 +1749,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start the daily stock alert scheduler
   dailyStockAlertService.startScheduler();
 
+  // ========== REPORT GENERATION ENDPOINTS ==========
+
+  // Inventory Report - Excel download
+  app.get("/api/reports/inventory", isAuthenticated, async (req: any, res) => {
+    try {
+      const { products } = await storage.getProducts();
+      const categories = await storage.getCategories();
+      
+      // Get user permissions to check if they can view prices
+      const userRole = req.user.role || "sales_team";
+      const permissions = getUserPermissions(userRole);
+      const canViewPrices = permissions.canViewPrices;
+      
+      // Create category lookup
+      const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+      
+      // Prepare data for Excel
+      const reportData = products.map(p => {
+        const baseData: Record<string, any> = {
+          "Product Name": p.name,
+          "SKU": p.sku,
+          "Barcode": p.barcode || "",
+          "Category": p.category?.name || categoryMap.get(p.categoryId!) || "Uncategorized",
+          "Company": p.company || "EcoCut",
+          "Current Stock": p.currentStock,
+          "Min Stock Level": p.minStockLevel || 0,
+          "Max Stock Level": p.maxStockLevel || 0,
+          "Stock Status": p.currentStock <= 0 ? "Out of Stock" : p.currentStock <= (p.minStockLevel || 10) ? "Low Stock" : "In Stock",
+          "Bin Location": p.binLocation || "",
+          "Supplier": p.supplierName || "",
+        };
+        
+        // Only include price if user has permission
+        if (canViewPrices) {
+          baseData["Unit Price (₹)"] = p.unitPrice;
+          baseData["Total Value (₹)"] = (parseFloat(p.unitPrice) * p.currentStock).toFixed(2);
+        }
+        
+        return baseData;
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(reportData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 },
+        ...(canViewPrices ? [{ wch: 12 }, { wch: 15 }] : [])
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, "Inventory Report");
+      
+      // Generate buffer
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      
+      // Set headers for file download
+      const filename = `Inventory_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating inventory report:", error);
+      res.status(500).json({ message: "Failed to generate inventory report" });
+    }
+  });
+
+  // Stock Movement Report - Excel download
+  app.get("/api/reports/stock-movements", isAuthenticated, async (req: any, res) => {
+    try {
+      const movements = await storage.getStockMovements();
+      
+      // Prepare data for Excel
+      const reportData = movements.map(m => ({
+        "Date": m.createdAt ? new Date(m.createdAt).toLocaleString('en-IN') : "",
+        "Product": m.product?.name || "Unknown",
+        "SKU": m.product?.sku || "",
+        "Type": m.type,
+        "Quantity": m.quantity,
+        "Previous Stock": m.previousStock,
+        "New Stock": m.newStock,
+        "Reason": m.reason || "",
+        "Invoice/DC Number": m.invoiceNumber || "",
+        "Invoice Date": m.invoiceDate ? new Date(m.invoiceDate).toLocaleDateString('en-IN') : "",
+        "User": m.user?.firstName ? `${m.user.firstName} ${m.user.lastName || ''}`.trim() : m.userId,
+        "Notes": m.notes || "",
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(reportData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
+        { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 30 }
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, "Stock Movements");
+      
+      // Generate buffer
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      
+      // Set headers for file download
+      const filename = `Stock_Movements_${new Date().toISOString().split('T')[0]}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating stock movement report:", error);
+      res.status(500).json({ message: "Failed to generate stock movement report" });
+    }
+  });
+
+  // Low Stock Report - Excel download
+  app.get("/api/reports/low-stock", isAuthenticated, async (req: any, res) => {
+    try {
+      const { products } = await storage.getProducts({ stockLevel: "low" });
+      const outOfStockProducts = (await storage.getProducts({ stockLevel: "out" })).products;
+      const allLowStock = [...products, ...outOfStockProducts];
+      
+      // Get user permissions to check if they can view prices
+      const userRole = req.user.role || "sales_team";
+      const permissions = getUserPermissions(userRole);
+      const canViewPrices = permissions.canViewPrices;
+      
+      // Prepare data for Excel
+      const reportData = allLowStock.map(p => {
+        const baseData: Record<string, any> = {
+          "Product Name": p.name,
+          "SKU": p.sku,
+          "Category": p.category?.name || "Uncategorized",
+          "Company": p.company || "EcoCut",
+          "Current Stock": p.currentStock,
+          "Min Stock Level": p.minStockLevel || 0,
+          "Shortage": Math.max(0, (p.minStockLevel || 10) - p.currentStock),
+          "Status": p.currentStock <= 0 ? "OUT OF STOCK" : "LOW STOCK",
+          "Supplier": p.supplierName || "",
+          "Bin Location": p.binLocation || "",
+        };
+        
+        // Only include price if user has permission
+        if (canViewPrices) {
+          baseData["Unit Price (₹)"] = p.unitPrice;
+          baseData["Reorder Cost (₹)"] = (parseFloat(p.unitPrice) * Math.max(0, (p.minStockLevel || 10) - p.currentStock)).toFixed(2);
+        }
+        
+        return baseData;
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(reportData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
+        ...(canViewPrices ? [{ wch: 12 }, { wch: 15 }] : [])
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, "Low Stock Alert");
+      
+      // Generate buffer
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      
+      // Set headers for file download
+      const filename = `Low_Stock_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating low stock report:", error);
+      res.status(500).json({ message: "Failed to generate low stock report" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server for real-time updates

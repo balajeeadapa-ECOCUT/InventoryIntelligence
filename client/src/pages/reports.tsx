@@ -5,12 +5,50 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Download, FileText, BarChart3, TrendingUp } from "lucide-react";
+import { Download, FileText, BarChart3, TrendingUp, Loader2 } from "lucide-react";
 
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+
+  // Function to download a report
+  const downloadReport = async (reportType: string, endpoint: string, filename: string) => {
+    setGeneratingReport(reportType);
+    try {
+      const response = await fetch(endpoint, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Report Downloaded",
+        description: `${reportType} has been downloaded successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingReport(null);
+    }
+  };
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -32,19 +70,31 @@ export default function Reports() {
       title: "Inventory Report",
       description: "Current stock levels and product details",
       icon: FileText,
-      action: () => toast({ title: "Generating Report", description: "Inventory report will be available shortly" }),
+      action: () => downloadReport(
+        "Inventory Report",
+        "/api/reports/inventory",
+        `Inventory_Report_${new Date().toISOString().split('T')[0]}.xlsx`
+      ),
     },
     {
       title: "Stock Movement Report",
       description: "History of all stock movements",
       icon: TrendingUp,
-      action: () => toast({ title: "Generating Report", description: "Stock movement report will be available shortly" }),
+      action: () => downloadReport(
+        "Stock Movement Report",
+        "/api/reports/stock-movements",
+        `Stock_Movements_${new Date().toISOString().split('T')[0]}.xlsx`
+      ),
     },
     {
       title: "Low Stock Alert",
       description: "Products below minimum stock levels",
       icon: BarChart3,
-      action: () => toast({ title: "Generating Report", description: "Low stock report will be available shortly" }),
+      action: () => downloadReport(
+        "Low Stock Alert",
+        "/api/reports/low-stock",
+        `Low_Stock_Report_${new Date().toISOString().split('T')[0]}.xlsx`
+      ),
     },
   ];
 
@@ -100,9 +150,23 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 mb-4">{report.description}</p>
-                  <Button onClick={report.action} className="w-full">
-                    <Download className="h-4 w-4 mr-2" />
-                    Generate Report
+                  <Button 
+                    onClick={report.action} 
+                    className="w-full"
+                    disabled={generatingReport !== null}
+                    data-testid={`btn-generate-${report.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {generatingReport === report.title ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Generate Report
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
