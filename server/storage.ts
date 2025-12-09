@@ -64,6 +64,14 @@ export interface IStorage {
     totalValue: number;
   }>;
   
+  getCompanyStats(): Promise<Array<{
+    company: string;
+    totalProducts: number;
+    lowStockItems: number;
+    outOfStockItems: number;
+    totalValue: number;
+  }>>;
+  
   // App settings operations
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<AppSetting>;
@@ -519,6 +527,45 @@ export class DatabaseStorage implements IStorage {
       outOfStockItems: Number(stats.outOfStockItems) || 0,
       totalValue: Number(stats.totalValue) || 0,
     };
+  }
+
+  async getCompanyStats(): Promise<Array<{
+    company: string;
+    totalProducts: number;
+    lowStockItems: number;
+    outOfStockItems: number;
+    totalValue: number;
+  }>> {
+    const companies = ["EcoCut", "AGIS", "EcoFast"];
+    const results = [];
+
+    for (const company of companies) {
+      const [stats] = await db
+        .select({
+          totalProducts: count(),
+          lowStockItems: sum(
+            sql`CASE WHEN ${products.currentStock} <= ${products.minStockLevel} AND ${products.currentStock} > 0 THEN 1 ELSE 0 END`
+          ),
+          outOfStockItems: sum(
+            sql`CASE WHEN ${products.currentStock} = 0 THEN 1 ELSE 0 END`
+          ),
+          totalValue: sum(
+            sql`${products.currentStock} * ${products.unitPrice}`
+          ),
+        })
+        .from(products)
+        .where(and(eq(products.isActive, true), eq(products.company, company)));
+
+      results.push({
+        company,
+        totalProducts: stats.totalProducts || 0,
+        lowStockItems: Number(stats.lowStockItems) || 0,
+        outOfStockItems: Number(stats.outOfStockItems) || 0,
+        totalValue: Number(stats.totalValue) || 0,
+      });
+    }
+
+    return results;
   }
 
   // App settings operations

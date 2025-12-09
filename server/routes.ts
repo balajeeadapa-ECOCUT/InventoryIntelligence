@@ -805,6 +805,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/company-stats", isAuthenticated, async (req, res) => {
+    try {
+      const companyStats = await storage.getCompanyStats();
+      res.json(companyStats);
+    } catch (error) {
+      console.error("Error fetching company stats:", error);
+      res.status(500).json({ message: "Failed to fetch company stats" });
+    }
+  });
+
   // Category routes
   app.get("/api/categories", isAuthenticated, async (req, res) => {
     try {
