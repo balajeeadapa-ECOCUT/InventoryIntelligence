@@ -18,19 +18,34 @@ declare global {
   }
 }
 
-// Middleware to check if user is authenticated
+// Middleware to check if user is authenticated (handles both OIDC and email/password)
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   try {
-    // Check if user is authenticated via Replit Auth or session
-    if (!req.session || !req.session.passport || !req.session.passport.user) {
+    const session = req.session as any;
+    const oidcUser = req.user as any;
+    
+    let userId: string | null = null;
+    
+    // Check for email/password authentication first
+    if (session?.userId && session?.isAuthenticated) {
+      userId = session.userId;
+    }
+    // Check for OIDC (Replit Auth) - user is already attached by passport
+    else if (oidcUser?.claims?.sub) {
+      userId = oidcUser.claims.sub;
+    }
+    // Legacy passport session check
+    else if (session?.passport?.user) {
+      userId = session.passport.user;
+    }
+    
+    if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
-
-    const userId = req.session.passport.user;
 
     // Fetch user from database
     const [user] = await db
@@ -41,6 +56,11 @@ export async function requireAuth(
 
     if (!user) {
       return res.status(401).json({ error: "User not found" });
+    }
+
+    // Check if user is approved (for email/password auth)
+    if (user.status && user.status !== 'approved') {
+      return res.status(403).json({ error: "Account pending approval" });
     }
 
     // Attach user to request object
