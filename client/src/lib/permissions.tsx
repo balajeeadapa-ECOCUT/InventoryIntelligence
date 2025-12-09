@@ -2,21 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { UserRole } from "@shared/schema";
 
 export interface UserPermissions {
-  canManageUsers: boolean;
+  canViewDashboard: boolean;
+  canViewProducts: boolean;
   canManageProducts: boolean;
+  canViewStock: boolean;
+  canManageStock: boolean;
+  canViewCategories: boolean;
   canManageCategories: boolean;
-  canManageEmployees: boolean;
   canViewReports: boolean;
-  canViewAIInsights: boolean;
+  canManageUsers: boolean;
+  canViewSettings: boolean;
   canManageSettings: boolean;
   canViewPrices: boolean;
-  canEditPrices: boolean;
-  canViewSuppliers: boolean;
-  canManageInventory: boolean;
-  canViewStockAlerts: boolean;
-  canExportData: boolean;
-  canDeleteData: boolean;
-  canViewAllData: boolean;
+  canApproveEmployees: boolean;
 }
 
 export interface UserWithPermissions {

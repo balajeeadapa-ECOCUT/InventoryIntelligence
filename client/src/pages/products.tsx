@@ -266,7 +266,7 @@ export default function Products() {
             <div className="flex gap-2 flex-wrap">
               {selectedProducts.length > 0 && (
                 <>
-                  <Can permission="canDeleteData">
+                  <Can permission="canManageProducts">
                     <Button 
                       variant="outline" 
                       onClick={() => setBulkDeleteDialogOpen(true)}
@@ -544,7 +544,7 @@ export default function Products() {
                           <TableCell className="text-right">
                             <div className="flex items-center gap-1 justify-end">
                               <PrintQRButton product={product} size="icon" variant="ghost" />
-                              <Can permission="canManageInventory">
+                              <Can permission="canManageStock">
                                 <Button 
                                   variant="ghost" 
                                   size="icon"
@@ -553,6 +553,7 @@ export default function Products() {
                                     setStockAdjustmentOpen(true);
                                   }}
                                   title="Stock In/Out"
+                                  data-testid={`button-stock-${product.id}`}
                                 >
                                   <TrendingUp className="h-4 w-4 text-green-600" />
                                 </Button>
