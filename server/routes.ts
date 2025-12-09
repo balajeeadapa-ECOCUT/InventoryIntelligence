@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { requireAuth, requireRole, requirePermission, attachPermissions } from "./authMiddleware";
+import { requireAuth, requireRole, requirePermission, attachPermissions, getUserPermissions } from "./authMiddleware";
 import { setupAuthRoutes } from "./authRoutes";
 import {
   insertCategorySchema,
@@ -1629,6 +1629,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API endpoint to get current user's role and permissions
+  app.get("/api/user/permissions", requireAuth, attachPermissions, async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const permissions = getUserPermissions(req.user.role);
+
+      res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          firstName: req.user.firstName,
+          lastName: req.user.lastName,
+          role: req.user.role,
+        },
+        permissions,
+      });
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ error: "Failed to fetch permissions" });
+    }
+  });
+
   // Get stock alert logs
   app.get("/api/stock-alerts/logs", isAuthenticated, async (req: any, res) => {
     try {
@@ -1681,31 +1706,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-
-      // API endpoint to get current user's role and permissions
-      app.get("/api/user/permissions", requireAuth, attachPermissions, async (req, res) => {
-        try {
-          if (!req.user) {
-            return res.status(401).json({ error: "Not authenticated" });
-          }
-
-          const permissions = getUserPermissions(req.user.role);
-
-          res.json({
-            user: {
-              id: req.user.id,
-              email: req.user.email,
-              firstName: req.user.firstName,
-              lastName: req.user.lastName,
-              role: req.user.role,
-            },
-            permissions,
-          });
-        } catch (error) {
-          console.error("Error fetching user permissions:", error);
-          res.status(500).json({ error: "Failed to fetch permissions" });
-        }
-      });
       const { enabled, recipient } = req.body;
 
       if (typeof enabled === 'boolean') {
