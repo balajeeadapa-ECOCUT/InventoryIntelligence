@@ -9,6 +9,7 @@ channel = "stable-24_05"
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
+publicDir = "dist/public"
 
 [workflows]
 runButton = "Project"
@@ -70,10 +71,6 @@ externalPort = 3001
 [[ports]]
 localPort = 44859
 externalPort = 3000
-
-[[ports]]
-localPort = 45403
-externalPort = 8000
 
 [agent]
 integrations = ["javascript_log_in_with_replit:1.0.0"]
