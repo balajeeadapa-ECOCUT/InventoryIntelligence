@@ -21,6 +21,7 @@ export const ROLE_PERMISSIONS = {
     canViewSettings: true,
     canManageSettings: true,
     canViewPrices: true,
+    canViewSupplier: true,
     canApproveEmployees: true,
   },
   manager: {
@@ -36,6 +37,7 @@ export const ROLE_PERMISSIONS = {
     canViewSettings: true,
     canManageSettings: false,
     canViewPrices: true,
+    canViewSupplier: true,
     canApproveEmployees: false,
   },
   sales_team: {
@@ -51,6 +53,7 @@ export const ROLE_PERMISSIONS = {
     canViewSettings: false,
     canManageSettings: false,
     canViewPrices: false,
+    canViewSupplier: false,
     canApproveEmployees: false,
   },
 } as const;

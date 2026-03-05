@@ -421,7 +421,9 @@ export default function Products() {
                         <TableHead>Category</TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Bin Location</TableHead>
-                        <TableHead>Supplier</TableHead>
+                        <Can permission="canViewSupplier">
+                          <TableHead>Supplier</TableHead>
+                        </Can>
                         <TableHead>Stock</TableHead>
                         <Can permission="canViewPrices">
                           <TableHead>Price</TableHead>
@@ -496,11 +498,13 @@ export default function Products() {
                               <span className="text-gray-400">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {product.supplierName || (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </TableCell>
+                          <Can permission="canViewSupplier">
+                            <TableCell className="text-sm">
+                              {product.supplierName || (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </TableCell>
+                          </Can>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span className={`font-medium ${

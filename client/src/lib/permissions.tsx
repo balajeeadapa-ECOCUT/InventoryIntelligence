@@ -14,6 +14,7 @@ export interface UserPermissions {
   canViewSettings: boolean;
   canManageSettings: boolean;
   canViewPrices: boolean;
+  canViewSupplier: boolean;
   canApproveEmployees: boolean;
 }
 
