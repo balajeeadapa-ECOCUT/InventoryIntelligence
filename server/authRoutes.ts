@@ -160,7 +160,7 @@ export function setupAuthRoutes(app: Express) {
     });
   });
 
-  // Check if email exists (for signup validation)
+  // Check if email exists (for signup validation - GET)
   app.get("/api/auth/check-email", async (req: Request, res: Response) => {
     const email = req.query.email as string;
     if (!email) {
@@ -169,6 +169,57 @@ export function setupAuthRoutes(app: Express) {
     
     const existingUser = await storage.getUserByEmail(email);
     res.json({ exists: !!existingUser });
+  });
+
+  // Check if email exists for password reset (POST)
+  app.post("/api/auth/check-email", async (req: Request, res: Response) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address" });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({ message: "This account uses Replit login. Please sign in with Replit." });
+    }
+
+    res.json({ message: "Email found" });
+  });
+
+  // Reset password
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { email, newPassword } = req.body;
+
+      if (!email || !newPassword) {
+        return res.status(400).json({ message: "Email and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "No account found with this email address" });
+      }
+
+      if (!user.password) {
+        return res.status(400).json({ message: "This account uses Replit login." });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      res.json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
   });
 
   // Get current session user info (for email/password auth)

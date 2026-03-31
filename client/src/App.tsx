@@ -16,6 +16,7 @@ import Employees from "@/pages/employees";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
 import PendingApproval from "@/pages/pending-approval";
+import ForgotPassword from "@/pages/forgot-password";
 import NotFound from "@/pages/not-found";
 import AIInsights from "@/pages/ai-insights";
 
@@ -68,6 +69,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/pending-approval" component={PendingApproval} />
       
       {!isAuthenticated ? (
