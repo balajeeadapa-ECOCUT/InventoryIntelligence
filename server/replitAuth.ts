@@ -8,9 +8,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+const isReplitEnvironment = !!process.env.REPLIT_DOMAINS;
 
 const getOidcConfig = memoize(
   async () => {
@@ -25,20 +23,21 @@ const getOidcConfig = memoize(
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
+  const conString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    conString,
     createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET || "fallback-secret-change-in-production",
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
     },
   });
@@ -54,9 +53,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
+async function upsertUser(claims: any) {
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
@@ -72,6 +69,29 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  if (!isReplitEnvironment) {
+    // Not on Replit — skip OIDC setup
+    // Password-based auth in authRoutes.ts handles all login flows
+
+    // Stub out Replit auth routes so they redirect gracefully
+    app.get("/api/login", (_req, res) => {
+      res.redirect("/login");
+    });
+    app.get("/api/callback", (_req, res) => {
+      res.redirect("/login");
+    });
+    app.get("/api/logout", (req, res) => {
+      req.session.destroy(() => {});
+      res.redirect("/login");
+    });
+
+    return;
+  }
+
+  // --- Replit OIDC setup (only when REPLIT_DOMAINS is set) ---
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -84,8 +104,7 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -97,9 +116,6 @@ export async function setupAuth(app: Express) {
     );
     passport.use(strategy);
   }
-
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -129,18 +145,16 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
-  const session = req.session as any;
+  const sessionData = req.session as any;
 
-  // Check for email/password authentication first
-  if (session?.userId && session?.isAuthenticated) {
+  // Check for email/password session authentication first
+  if (sessionData?.userId && sessionData?.isAuthenticated) {
     try {
-      const dbUser = await storage.getUser(session.userId);
+      const dbUser = await storage.getUser(sessionData.userId);
       if (dbUser) {
-        // Check if user is approved
-        if (dbUser.status !== 'approved') {
+        if (dbUser.status !== "approved") {
           return res.status(403).json({ message: "Account pending approval" });
         }
-        // Attach user info to req.user for consistency with OIDC auth
         (req as any).user = {
           claims: { sub: dbUser.id },
           id: dbUser.id,
@@ -157,6 +171,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  // If not on Replit, only session-based auth is supported
+  if (!isReplitEnvironment) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   // Fall back to Replit OIDC authentication
   if (!req.isAuthenticated() || !user?.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -166,8 +185,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   if (now > user.expires_at) {
     const refreshToken = user.refresh_token;
     if (!refreshToken) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
     try {
@@ -175,8 +193,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
     } catch (error) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      return res.status(401).json({ message: "Unauthorized" });
     }
   }
 
@@ -186,8 +203,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     if (userId) {
       const dbUser = await storage.getUser(userId);
       if (dbUser) {
-        // Check if user is approved
-        if (dbUser.status !== 'approved') {
+        if (dbUser.status !== "approved") {
           return res.status(403).json({ message: "Account pending approval" });
         }
         user.id = dbUser.id;
