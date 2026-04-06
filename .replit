@@ -47,3 +47,6 @@ integrations = ["javascript_log_in_with_replit:1.0.0"]
 [userenv.shared]
 DAILY_STOCK_ALERTS_ENABLED = "true"
 NEON_DATABASE_URL = "postgresql://neondb_owner:npg_3gujMLHBWIN1@ep-autumn-mud-agbhtfg1.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+SMTP_HOST = "smtp.gmail.com"
+SMTP_USER = "balajee.adapa@gmail.com"
+SMTP_PORT = "587"
