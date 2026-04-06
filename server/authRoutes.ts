@@ -1,9 +1,20 @@
 import { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
 import { storage } from "./storage";
 import { signupSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { generateOtp, setOtp, verifyOtp, isOtpVerified, clearOtp } from "./otp-store";
+
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+}
 
 declare module "express-session" {
   interface SessionData {
@@ -171,49 +182,83 @@ export function setupAuthRoutes(app: Express) {
     res.json({ exists: !!existingUser });
   });
 
-  // Check if email exists for password reset (POST)
+  // Step 1: Verify email exists and send OTP
   app.post("/api/auth/check-email", async (req: Request, res: Response) => {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Email is required" });
 
-    const user = await storage.getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ message: "No account found with this email address" });
-    }
+      const user = await storage.getUserByEmail(email);
+      if (!user) return res.status(404).json({ message: "No account found with this email address" });
 
-    if (!user.password) {
-      return res.status(400).json({ message: "This account uses Replit login. Please sign in with Replit." });
-    }
+      if (!user.password) {
+        return res.status(400).json({ message: "This account uses Replit login. Please sign in with Replit." });
+      }
 
-    res.json({ message: "Email found" });
+      const code = generateOtp();
+      setOtp(email, code);
+
+      const transporter = createTransporter();
+      if (transporter) {
+        await transporter.sendMail({
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: "EcoCut Smart Inventory — Password Reset Code",
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px">
+              <h2 style="color:#16a34a;margin-bottom:8px">Password Reset</h2>
+              <p style="color:#374151">Use the verification code below to reset your EcoCut Smart Inventory password.</p>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#15803d">${code}</span>
+              </div>
+              <p style="color:#6b7280;font-size:14px">This code expires in <strong>10 minutes</strong>. If you did not request a password reset, ignore this email.</p>
+            </div>`,
+          text: `Your EcoCut password reset code is: ${code}\n\nThis code expires in 10 minutes.`,
+        });
+        console.log(`[PasswordReset] OTP sent to ${email}`);
+      } else {
+        // SMTP not configured — log for dev/test
+        console.log(`[PasswordReset] SMTP not configured. OTP for ${email}: ${code}`);
+      }
+
+      res.json({ message: "Verification code sent to your email" });
+    } catch (error) {
+      console.error("Send OTP error:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
   });
 
-  // Reset password
+  // Step 2: Verify the OTP code
+  app.post("/api/auth/verify-reset-code", async (req: Request, res: Response) => {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ message: "Email and code are required" });
+
+    const result = verifyOtp(email, code);
+    if (result === "expired") return res.status(400).json({ message: "Code has expired. Please request a new one." });
+    if (result === "invalid") return res.status(400).json({ message: "Invalid verification code. Please check and try again." });
+
+    res.json({ message: "Code verified successfully" });
+  });
+
+  // Step 3: Reset password (requires verified OTP)
   app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
     try {
       const { email, newPassword } = req.body;
 
-      if (!email || !newPassword) {
-        return res.status(400).json({ message: "Email and new password are required" });
-      }
+      if (!email || !newPassword) return res.status(400).json({ message: "Email and new password are required" });
+      if (newPassword.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
 
-      if (newPassword.length < 8) {
-        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      if (!isOtpVerified(email)) {
+        return res.status(403).json({ message: "Email not verified. Please complete the verification step first." });
       }
 
       const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "No account found with this email address" });
-      }
-
-      if (!user.password) {
-        return res.status(400).json({ message: "This account uses Replit login." });
-      }
+      if (!user) return res.status(404).json({ message: "No account found with this email address" });
+      if (!user.password) return res.status(400).json({ message: "This account uses Replit login." });
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await storage.updateUser(user.id, { password: hashedPassword });
+      clearOtp(email);
 
       res.json({ message: "Password reset successfully" });
     } catch (error) {
