@@ -542,3 +542,4 @@ export async function generateSmartReorderSuggestions(): Promise<SmartReorderSug
         suggestions.sort((a, b) => (urgencyOrder[a.urgency] ?? 3) - (urgencyOrder[b.urgency] ?? 3));
 
       return suggestions;
+}
