@@ -542,13 +542,3 @@ export async function generateSmartReorderSuggestions(): Promise<SmartReorderSug
         suggestions.sort((a, b) => (urgencyOrder[a.urgency] ?? 3) - (urgencyOrder[b.urgency] ?? 3));
 
       return suggestions;
-} catch (error) {
-        console.error("Error generating smart reorder suggestions:", error);
-      return [];
-}
-}
-}
-
-// ─── SINGLETON EXPORT ────────────────────────────────────────────────────────
-
-export const aiInventoryService = new AIInventoryService();
