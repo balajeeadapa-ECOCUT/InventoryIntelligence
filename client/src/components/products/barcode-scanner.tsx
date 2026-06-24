@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, Camera, CameraOff, Smartphone, AlertCircle, CheckCircle2 } from "lucide-react";
+import { QrCode, Camera, CameraOff, Smartphone, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
 interface BarcodeScannerProps {
   open: boolean;
@@ -15,9 +15,11 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
   const [manualBarcode, setManualBarcode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [scannedValue, setScannedValue] = useState<string | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>("environment");
+  const [permissionState, setPermissionState] = useState<"unknown" | "granted" | "denied">("unknown");
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<any>(null);
   const scanningRef = useRef(false);
@@ -38,8 +40,18 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
     }
   }, []);
 
-  const enumerateCameras = useCallback(async () => {
+  // Request camera permission explicitly and enumerate cameras
+  const requestPermissionAndEnumerate = useCallback(async () => {
     try {
+      // Step 1: Explicitly request permission — this triggers the browser prompt on Android
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } }
+      });
+      setPermissionState("granted");
+      // Stop this test stream immediately — ZXing will create its own
+      stream.getTracks().forEach((t) => t.stop());
+
+      // Step 2: Now enumerate — labels will be populated after permission
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter((d) => d.kind === "videoinput");
       setCameras(videoDevices);
@@ -50,7 +62,16 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
           d.label.toLowerCase().includes("environment")
       );
       if (backCam) setSelectedCamera(backCam.deviceId);
-    } catch {}
+    } catch (err: any) {
+      setPermissionState("denied");
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        setError("Camera permission denied. Please tap the camera/lock icon in your browser address bar and allow camera access, then try again.");
+      } else if (err?.name === "NotFoundError") {
+        setError("No camera found on this device.");
+      } else {
+        setError("Could not access camera: " + (err?.message || err?.name || "Unknown error"));
+      }
+    }
   }, []);
 
   const stopScanning = useCallback(() => {
@@ -64,22 +85,34 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
 
   const startScanning = useCallback(async () => {
     setError(null);
+    setErrorDetail(null);
     setScannedValue(null);
     setIsScanning(true);
     scanningRef.current = true;
     try {
+      // If permission not yet granted, request it first
+      if (permissionState !== "granted") {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } }
+        });
+        setPermissionState("granted");
+        stream.getTracks().forEach((t) => t.stop());
+      }
+
       const BrowserMultiFormatReader = await loadZXing();
       if (!BrowserMultiFormatReader) {
         throw new Error("Could not load scanning library. Please use manual entry.");
       }
       const reader = new BrowserMultiFormatReader();
       readerRef.current = reader;
-      // Use selectedCamera deviceId or undefined for environment-facing default
+
+      // Use back/environment camera — pass undefined to let ZXing auto-select
       const deviceId =
-        cameras.length > 0 && selectedCamera !== "environment"
+        cameras.length > 0 && selectedCamera && selectedCamera !== "environment"
           ? selectedCamera
           : undefined;
-      // decodeFromVideoDevice(deviceId, videoElement, callbackFn) — correct API for @zxing/browser
+
+      // decodeFromVideoDevice handles camera stream + video element internally
       await reader.decodeFromVideoDevice(
         deviceId,
         videoRef.current,
@@ -94,34 +127,50 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
               onScan(text);
               onOpenChange(false);
             }, 800);
-          } else if (err && err?.name !== "NotFoundException") {
-            setError("Scanning error: " + (err?.message || "Unknown error"));
-            stopScanning();
+          } else if (err) {
+            // NotFoundException is expected — means no barcode in frame yet, keep scanning
+            if (err?.name !== "NotFoundException") {
+              setErrorDetail(err?.name + ": " + err?.message);
+              setError("Scanning error. Try repositioning the QR code or use manual entry.");
+              stopScanning();
+            }
           }
         }
       );
     } catch (err: any) {
-      const msg =
-        err?.name === "NotAllowedError"
-          ? "Camera access denied. Please allow camera permission in your browser/phone settings, then try again."
-          : err?.name === "NotFoundError"
-          ? "No camera found on this device."
-          : err?.message || "Could not access camera.";
+      let msg: string;
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        msg = "Camera permission denied. Tap the camera icon in your browser's address bar to allow access, then try again.";
+      } else if (err?.name === "NotFoundError") {
+        msg = "No camera found. Please use manual entry below.";
+      } else if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
+        msg = "Camera is in use by another app. Close other camera apps and try again.";
+      } else if (err?.name === "OverconstrainedError") {
+        msg = "Rear camera not available. Try selecting a different camera.";
+      } else {
+        msg = "Could not access camera: " + (err?.message || err?.name || "Unknown error");
+      }
       setError(msg);
+      setErrorDetail(err?.name || null);
       setIsScanning(false);
     }
-  }, [cameras, selectedCamera, loadZXing, stopScanning, onScan, onOpenChange]);
+  }, [cameras, selectedCamera, permissionState, loadZXing, stopScanning, onScan, onOpenChange]);
 
+  // When dialog opens, auto-request camera permission
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setError(null);
+      setErrorDetail(null);
+      requestPermissionAndEnumerate();
+    } else {
       stopScanning();
       setError(null);
+      setErrorDetail(null);
       setScannedValue(null);
       setManualBarcode("");
-    } else {
-      enumerateCameras();
+      setPermissionState("unknown");
     }
-  }, [open, stopScanning, enumerateCameras]);
+  }, [open]);
 
   useEffect(() => () => { stopScanning(); }, [stopScanning]);
 
@@ -147,8 +196,10 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
             <Smartphone className="h-4 w-4 shrink-0" />
             <span>Point your phone's rear camera at any barcode or QR code to scan instantly</span>
           </div>
+
           <div className="relative w-full rounded-lg overflow-hidden bg-black" style={{ aspectRatio: "4/3" }}>
             <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+
             {isScanning && !scannedValue && (
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <div className="w-56 h-32 border-2 border-blue-400 rounded relative">
@@ -160,18 +211,32 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
                 <p className="mt-3 text-white text-xs bg-black/40 px-2 py-1 rounded">Align barcode within frame</p>
               </div>
             )}
+
             {!isScanning && !error && !scannedValue && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
                 <QrCode className="h-14 w-14 text-gray-500 mb-2" />
-                <p className="text-sm text-gray-400">Camera preview will appear here</p>
+                <p className="text-sm text-gray-400">
+                  {permissionState === "granted" ? "Press Start Camera to scan" : "Requesting camera permission..."}
+                </p>
               </div>
             )}
+
             {error && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/80 px-4">
-                <AlertCircle className="h-10 w-10 text-red-400 mb-2" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/80 px-4 gap-2">
+                <AlertCircle className="h-10 w-10 text-red-400 mb-1 shrink-0" />
                 <p className="text-sm text-red-300 text-center">{error}</p>
+                {errorDetail && (
+                  <p className="text-xs text-red-400/70 text-center font-mono">{errorDetail}</p>
+                )}
+                <button
+                  onClick={() => { setError(null); setErrorDetail(null); requestPermissionAndEnumerate(); }}
+                  className="mt-1 text-xs text-red-300 underline flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3 w-3" /> Retry permission
+                </button>
               </div>
             )}
+
             {scannedValue && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-green-950/80">
                 <CheckCircle2 className="h-12 w-12 text-green-400 mb-2" />
@@ -180,6 +245,7 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
               </div>
             )}
           </div>
+
           {cameras.length > 1 && (
             <div className="flex items-center gap-2">
               <Label className="text-xs whitespace-nowrap">Camera:</Label>
@@ -194,10 +260,11 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
               </select>
             </div>
           )}
+
           <Button
             onClick={isScanning ? stopScanning : startScanning}
             className={`w-full ${isScanning ? "bg-red-500 hover:bg-red-600" : ""}`}
-            disabled={!!scannedValue}
+            disabled={!!scannedValue || permissionState === "denied"}
           >
             {isScanning ? (
               <><CameraOff className="h-4 w-4 mr-2" />Stop Camera</>
@@ -205,12 +272,14 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
               <><Camera className="h-4 w-4 mr-2" />Start Camera and Scan</>
             )}
           </Button>
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white px-2 text-gray-500">Or enter manually</span>
             </div>
           </div>
+
           <div className="space-y-3">
             <div>
               <Label htmlFor="manual-barcode">Barcode or QR Code value</Label>
