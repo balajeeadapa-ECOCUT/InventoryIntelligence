@@ -543,3 +543,20 @@ export async function generateSmartReorderSuggestions(): Promise<SmartReorderSug
 
       return suggestions;
 }
+
+
+// ─── LEGACY SERVICE OBJECT (for backward-compatibility with routes.ts) ────────
+export const aiInventoryService = {
+      generateDemandForecast: async (productId?: number): Promise<DemandForecast[]> => {
+              return [];
+      },
+      generateInventoryInsights: async (): Promise<InventoryInsight[]> => {
+              return [];
+      },
+      optimizeStockLevels: async (): Promise<StockOptimization[]> => {
+              return [];
+      },
+      generateReorderRecommendations: async (): Promise<SmartReorderSuggestion[]> => {
+              return generateSmartReorderSuggestions();
+      },
+};
