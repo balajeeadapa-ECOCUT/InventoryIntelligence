@@ -42,6 +42,7 @@ export default function Products() {
   const [bulkStockUploadOpen, setBulkStockUploadOpen] = useState(false);
   const [stockAdjustmentOpen, setStockAdjustmentOpen] = useState(false);
   const [qrLabelPrinterOpen, setQrLabelPrinterOpen] = useState(false);
+  const [bulkQrPrintOpen, setBulkQrPrintOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -325,6 +326,15 @@ export default function Products() {
                   Add Product
                 </Button>
               </Can>
+            <Button
+              variant="outline"
+              onClick={() => setBulkQrPrintOpen(true)}
+              className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+              data-testid="bulk-print-qr-btn"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print QR Codes
+            </Button>
             </div>
           </div>
 
@@ -670,6 +680,14 @@ export default function Products() {
         }}
         initialSelectedIds={selectedProducts}
       />
+      {/* Bulk QR Print Modal - all products */}
+      <QRLabelPrinter
+        products={productsData?.products || []}
+        open={bulkQrPrintOpen}
+        onClose={() => setBulkQrPrintOpen(false)}
+        initialSelectedIds={(productsData?.products || []).map((p: any) => p.id)}
+      />
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
