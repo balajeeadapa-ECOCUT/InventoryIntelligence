@@ -11,6 +11,23 @@ interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
 }
 
+// Helper: extracts a clean item code from a QR scan result.
+// If the scan is JSON (e.g. from QR label printer), returns barcode > sku > name > id.
+// Otherwise returns the raw string (plain barcode / plain text).
+function extractItemCode(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const p = JSON.parse(trimmed);
+    const barcode = String(p.barcode || "").trim();
+    const sku = String(p.sku || "").trim();
+    const name = String(p.name || "").trim();
+    const id = p.id ? String(p.id) : "";
+    return barcode || sku || name || id || trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerProps) {
   const [manualBarcode, setManualBarcode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -124,7 +141,7 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
             scanningRef.current = false;
             setTimeout(() => {
               stopScanning();
-              onScan(text);
+              onScan(extractItemCode(text));
               onOpenChange(false);
             }, 800);
           } else if (err) {
@@ -176,7 +193,7 @@ export function BarcodeScanner({ open, onOpenChange, onScan }: BarcodeScannerPro
 
   const handleManualSubmit = () => {
     if (manualBarcode.trim()) {
-      onScan(manualBarcode.trim());
+      onScan(extractItemCode(manualBarcode.trim()));
       setManualBarcode("");
       onOpenChange(false);
     }
