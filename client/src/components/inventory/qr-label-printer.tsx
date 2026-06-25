@@ -95,61 +95,66 @@ export function QRLabelPrinter({ products, open, onClose, singleProduct, initial
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setIsPrinting(true);
     const selectedProductsData = productList.filter(p => selectedProducts.includes(p.id));
     const dim = getLabelDimensions();
     const labelsWithCopies = selectedProductsData.flatMap(p => Array(copiesPerLabel).fill(p));
 
+    // Generate QR code data URLs using qrcode library on canvas
+    const QRCodeLib = await import('qrcode');
+    const qrDataUrls: Record<string, string> = {};
+    for (const product of selectedProductsData) {
+      try {
+        const dataUrl = await QRCodeLib.default.toDataURL(generateQRData(product), {
+          width: dim.qrPx,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+        qrDataUrls[product.id] = dataUrl;
+      } catch {}
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) { setIsPrinting(false); return; }
+
+    const labelHTML = labelsWithCopies.map((product: any) => {
+      const qrSrc = qrDataUrls[product.id] || '';
+      return `<div class="label">
+        <div class="label-header"><div class="company">ECOCUT INVENTORY</div></div>
+        <div class="product-name">${product.name.replace(/[<>&]/g, c => c==='<'?'&lt;':c==='>'?'&gt;':'&amp;')}</div>
+        <div class="qr-container">${qrSrc ? `<img src="${qrSrc}" width="${dim.qrPx}" height="${dim.qrPx}" style="display:block"/>` : '<div style="width:' + dim.qrPx + 'px;height:' + dim.qrPx + 'px;background:#eee"></div>'}</div>
+        <div class="label-footer">
+          <div class="sku">${(product.sku||'').replace(/[<>&]/g,c=>c==='<'?'&lt;':c==='>'?'&gt;':'&amp;')}</div>
+          <div class="barcode">${(product.barcode||product.sku||'').replace(/[<>&]/g,c=>c==='<'?'&lt;':c==='>'?'&gt;':'&amp;')}</div>
+        </div>
+      </div>`;
+    }).join('');
 
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><title>QR Labels – EcoCut Inventory</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-@page { size: auto; margin: 0.2in; }
-body { font-family: Arial, sans-serif; background: white; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-.labels-container { display: flex; flex-wrap: wrap; gap: 0.15in; justify-content: flex-start; }
-.label { width: ${dim.w}; height: ${dim.h}; border: 1px solid #333; border-radius: 3px; padding: 0.06in; display: flex; flex-direction: column; align-items: center; justify-content: space-between; page-break-inside: avoid; background: white; }
-.label-header { width:100%; text-align:center; border-bottom:1px solid #ccc; padding-bottom:3px; margin-bottom:3px; }
-.company { font-size:7pt; font-weight:bold; color:#1d4ed8; letter-spacing:0.5px; }
-.product-name { font-size:8pt; font-weight:bold; text-align:center; line-height:1.2; max-height:0.35in; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.qr-container { flex:1; display:flex; align-items:center; justify-content:center; }
-.label-footer { width:100%; text-align:center; border-top:1px solid #ccc; padding-top:3px; }
-.sku { font-size:9pt; font-weight:bold; font-family:'Courier New',monospace; }
-.barcode { font-size:6pt; color:#555; font-family:'Courier New',monospace; }
+*{margin:0;padding:0;box-sizing:border-box}
+@page{size:auto;margin:0.2in}
+body{font-family:Arial,sans-serif;background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.labels-container{display:flex;flex-wrap:wrap;gap:0.12in;justify-content:flex-start}
+.label{width:${dim.w};height:${dim.h};border:1px solid #333;border-radius:3px;padding:0.06in;display:flex;flex-direction:column;align-items:center;justify-content:space-between;page-break-inside:avoid;background:#fff}
+.label-header{width:100%;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:2px}
+.company{font-size:7pt;font-weight:bold;color:#1d4ed8;letter-spacing:.5px}
+.product-name{font-size:7.5pt;font-weight:bold;text-align:center;line-height:1.2;max-height:.36in;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.qr-container{flex:1;display:flex;align-items:center;justify-content:center}
+.label-footer{width:100%;text-align:center;border-top:1px solid #ccc;padding-top:2px}
+.sku{font-size:8.5pt;font-weight:bold;font-family:'Courier New',monospace}
+.barcode{font-size:6pt;color:#555;font-family:'Courier New',monospace}
+@media print{body{margin:0}.labels-container{gap:0.1in}}
 </style></head>
-<body><div class="labels-container">
-${labelsWithCopies.map((product: any, i: number) => `
-<div class="label">
-  <div class="label-header"><div class="company">ECOCUT INVENTORY</div></div>
-  <div class="product-name">${product.name}</div>
-  <div class="qr-container"><div id="qr-${product.id}-${i}"></div></div>
-  <div class="label-footer">
-    <div class="sku">${product.sku}</div>
-    <div class="barcode">${product.barcode || product.sku}</div>
-  </div>
-</div>`).join('')}
-</div>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var items = ${JSON.stringify(labelsWithCopies.map((p: any, i: number) => ({ id: p.id, data: generateQRData(p), idx: i })))};
-  var pending = items.length;
-  items.forEach(function(item) {
-    QRCode.toCanvas(document.createElement('canvas'), item.data, { width: ${dim.qrPx}, margin: 1 }, function(err, canvas) {
-      if (!err) { document.getElementById('qr-' + item.id + '-' + item.idx)?.appendChild(canvas); }
-      pending--;
-      if (pending === 0) { setTimeout(function() { window.print(); window.close(); }, 300); }
-    });
-  });
-  if (pending === 0) { setTimeout(function() { window.print(); window.close(); }, 300); }
-});
-</script></body></html>`);
+<body><div class="labels-container">${labelHTML}</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`);
     printWindow.document.close();
     setIsPrinting(false);
-  };
+  };;;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
